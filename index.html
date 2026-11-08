@@ -55,7 +55,7 @@ select.sel{height:.78rem;flex:1 1 0;min-width:0;border-radius:.16rem;border:1px 
 <script>
 (() => {
 'use strict';
-const VERSION = 'v01';
+const VERSION = 'v02';
 const LS = 'kytara.state.v1';
 const TAB_W_MM = 236.9;                       // Galaxy Tab S11, šířka displeje na šířku
 const STD = [40, 45, 50, 55, 59, 64];         // E2 A2 D3 G3 H3 E4 (MIDI)
@@ -96,7 +96,7 @@ const PW = 30, PICK_HALF = 2.6, SP = 10.5, FRAME_X = PW + 50;
 const DEF = {
   mode: 2, root: 11, scale: 'mpb', boxes: ['E'], showScale: true, names: 'root', slide: true, pos: 7, bpm: 80,
   set: { strings: 6, tuningName: 'Standard E', tuning: STD.slice(), scaleLen: 648, nutW: 42, pxmm: 0,
-         slideStr: 0.4, legatoStr: 0.5, volume: 0.8 },
+         slideStr: 0.4, legatoStr: 0.5, volume: 0.8, edgeOff: 10 },
 };
 const S = load();
 function load() {
@@ -114,7 +114,7 @@ const mod = (a, n) => ((a % n) + n) % n;
 const P = v => (Math.round(v * 100) / 100).toString();
 
 // ---------- geometrie (vše v mm) ----------
-let W = 237, H = 148, PX = 5.4, X0 = 0, FRAME_B = 75, MC = 66, ML = 93, MR = 219, MK = 0.25, PANEL_B = 55;
+let W = 237, H = 148, BOT = 138, PX = 5.4, X0 = 0, FRAME_B = 75, MC = 66, ML = 93, MR = 219, MK = 0.25, PANEL_B = 55;
 function defaultPx() { return Math.max(screen.width, screen.height) / TAB_W_MM; }
 function d(n) { return S.set.scaleLen * (1 - Math.pow(2, -n / 12)); }
 function fbEnd() { return d(NF) + 7; }
@@ -122,21 +122,21 @@ function fbw(x) { x = Math.max(0, Math.min(x, fbEnd())); return S.set.nutW + 14 
 function spread(x) { x = Math.max(0, x); const s0 = S.set.nutW - 7, s1 = 52.5; return s0 + (s1 - s0) * x / S.set.scaleLen; }
 function X(x) { return W - (x - X0); }
 function xOf(sx) { return X0 + (W - sx); }
-function topY(x) { return H - fbw(x); }
-function strY(i, x) { x = Math.max(0, x); const c = H - fbw(x) / 2, s = spread(x); return c - s / 2 + i * s / (NSTR - 1); }
+function topY(x) { return BOT - fbw(x); }
+function strY(i, x) { x = Math.max(0, x); const c = BOT - fbw(x) / 2, s = spread(x); return c - s / 2 + i * s / (NSTR - 1); }
 function noteX(f) { return f === 0 ? -4.5 : d(f - 1) + 0.58 * (d(f) - d(f - 1)); }
 function x0For(p) { return p === 0 ? -14 : d(p - 1) - 3; }
 function pMax() { for (let p = 0; p <= NF; p++) if (x0For(p) + W >= fbEnd() + 6) return p; return NF; }
 function mh(x) { return fbw(x) * MK * 0.75 / 2; }
 function MX(x) { return MR - x * MK; }
-function pickY(i) { const ye = Math.max(H - (S.set.nutW + 14) - 25.5, 6 + (NSTR - 1) * SP); return ye - (NSTR - 1 - i) * SP; }
+function pickY(i) { const ye = Math.max(BOT - (S.set.nutW + 14) - 25.5, 6 + (NSTR - 1) * SP); return ye - (NSTR - 1 - i) * SP; }
 function layout() {
   PX = S.set.pxmm || defaultPx();
   document.documentElement.style.fontSize = (PX * 10) + 'px';   // 1rem = 1 cm
-  W = innerWidth / PX; H = innerHeight / PX;
+  W = innerWidth / PX; H = innerHeight / PX; BOT = H - S.set.edgeOff;
   S.pos = Math.max(0, Math.min(S.pos, pMax()));
   X0 = x0For(S.pos);
-  FRAME_B = H - (S.set.nutW + 14) - 17;
+  FRAME_B = BOT - (S.set.nutW + 14) - 15;
   MC = FRAME_B - 8.5;
   ML = FRAME_X + 3 + 8.5 + 2; MR = W - 4 - 3 - 8.5 - 2;
   MK = (MR - ML) / (fbEnd() + 4);
@@ -215,7 +215,7 @@ function render() {
   const xa = Math.max(0, X0), xb = Math.min(fbEnd(), X0 + W);
   // hlava
   if (X0 < 0) {
-    o.push(`<rect x="${P(X(0))}" y="${P(topY(0) - 3)}" width="${P(W - X(0) + 1)}" height="${P(H - topY(0) + 3)}" fill="#2b2b30"/>`);
+    o.push(`<rect x="${P(X(0))}" y="${P(topY(0) - 3)}" width="${P(W - X(0) + 1)}" height="${P(BOT - topY(0) + 3)}" fill="#2b2b30"/>`);
     o.push(`<rect x="${P(X(0))}" y="${P(topY(0) - 3)}" width="${P(W - X(0) + 1)}" height="1.1" fill="#e3d8bd"/>`);
   }
   // tělo za koncem hmatníku
@@ -225,7 +225,7 @@ function render() {
   }
   // hmatník
   if (xa < xb) {
-    o.push(`<polygon points="${P(X(xb))},${P(topY(xb))} ${P(X(xa))},${P(topY(xa))} ${P(X(xa))},${P(H)} ${P(X(xb))},${P(H)}" fill="#1e1915"/>`);
+    o.push(`<polygon points="${P(X(xb))},${P(topY(xb))} ${P(X(xa))},${P(topY(xa))} ${P(X(xa))},${P(BOT)} ${P(X(xb))},${P(BOT)}" fill="#1e1915"/>`);
     for (let k = 0; k < 11; k++) {
       const t = (k + 0.5) / 11, pts = [];
       for (let x = xa; x <= xb + 0.1; x += Math.max(8, (xb - xa) / 24)) {
@@ -235,7 +235,7 @@ function render() {
       o.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="#2c241e" stroke-width="${(0.15 + (k * 37 % 10) / 40).toFixed(2)}" opacity="0.7"/>`);
     }
     o.push(`<polygon points="${P(X(xb))},${P(topY(xb))} ${P(X(xa))},${P(topY(xa))} ${P(X(xa))},${P(topY(xa) + 1.2)} ${P(X(xb))},${P(topY(xb) + 1.2)}" fill="#e3d8bd"/>`);
-    o.push(`<rect x="${P(X(xb))}" y="${P(H - 1.2)}" width="${P(X(xa) - X(xb))}" height="1.2" fill="#e3d8bd"/>`);
+    o.push(`<rect x="${P(X(xb))}" y="${P(BOT - 1.2)}" width="${P(X(xa) - X(xb))}" height="1.2" fill="#e3d8bd"/>`);
   }
   // nultý pražec
   if (X0 < 0) o.push(`<rect x="${P(X(0))}" y="${P(topY(0))}" width="3" height="${P(fbw(0))}" fill="#0e0e0f" stroke="#7a7a80" stroke-width="0.3"/>`);
@@ -243,7 +243,7 @@ function render() {
   for (let n = 1; n <= NF; n++) {
     const xn = d(n); if (xn < xa - 2 || xn > xb + 2) continue;
     const yt = topY(xn) + 1.2;
-    o.push(`<rect x="${P(X(xn) - 1.2)}" y="${P(yt)}" width="2.4" height="${P(H - 1.2 - yt)}" rx="0.7" fill="url(#fg)"/>`);
+    o.push(`<rect x="${P(X(xn) - 1.2)}" y="${P(yt)}" width="2.4" height="${P(BOT - 1.2 - yt)}" rx="0.7" fill="url(#fg)"/>`);
   }
   // značky (tečky, na oktávách dvojtečky)
   for (const n of INLAY) {
@@ -322,7 +322,7 @@ function render() {
   }
   for (const b of occ) {
     const pts = [];
-    const mp = (i, f) => { const x = noteX(f); return [MX(x), MC + (strY(i, x) - (H - fbw(x) / 2)) * MK * 0.75]; };
+    const mp = (i, f) => { const x = noteX(f); return [MX(x), MC + (strY(i, x) - (BOT - fbw(x) / 2)) * MK * 0.75]; };
     for (let i = 0; i < NSTR; i++) pts.push(mp(i, b.lo[i]));
     for (let i = NSTR - 1; i >= 0; i--) pts.push(mp(i, b.hi[i]));
     o.push(`<polygon points="${pts.map(q => P(q[0]) + ',' + P(q[1])).join(' ')}" fill="${BOX_COL[b.k]}" fill-opacity="0.25" stroke="${BOX_COL[b.k]}" stroke-width="0.45" stroke-linejoin="round"/>`);
@@ -409,6 +409,7 @@ ${stepper('Menzura – jemně', 'scalestep', S.set.scaleLen + ' mm')}
 ${stepper('Šířka hmatníku u nultého pražce', 'nut', S.set.nutW.toFixed(1).replace('.', ',') + ' mm')}
 ${stepper('Síla tónu při slidu', 'slidestr', Math.round(S.set.slideStr * 100) + ' %')}
 ${stepper('Síla tónu po uvolnění prstu a hammer-on', 'legstr', Math.round(S.set.legatoStr * 100) + ' %')}
+${stepper('Odsazení hmatníku od spodní hrany', 'edge', S.set.edgeOff + ' mm')}
 ${stepper('Hlasitost', 'vol', Math.round(S.set.volume * 100) + ' %')}
 <div class="grp"><div class="lbl">Kalibrace skutečné velikosti</div>
 <div class="note">Přilož platební kartu na fialový obdélník a tlačítky ho uprav, až bude přesně stejně velký.</div>
@@ -446,6 +447,7 @@ function act(a) {
     case 'slidestr': S.set.slideStr = Math.max(0, Math.min(1, Math.round((S.set.slideStr + n * 0.1) * 10) / 10)); break;
     case 'legstr': S.set.legatoStr = Math.max(0, Math.min(1, Math.round((S.set.legatoStr + n * 0.1) * 10) / 10)); break;
     case 'vol': S.set.volume = Math.max(0, Math.min(1, Math.round((S.set.volume + n * 0.1) * 10) / 10)); if (master) master.gain.value = S.set.volume; break;
+    case 'edge': S.set.edgeOff = Math.max(0, Math.min(30, S.set.edgeOff + n)); break;
     case 'cal': S.set.pxmm = n === 0 ? 0 : (S.set.pxmm || defaultPx()) * (1 + n * 0.001); break;
     default: return;
   }
@@ -491,7 +493,7 @@ function enterFs() {
   const el = document.documentElement;
   if (!el.requestFullscreen) return;
   el.requestFullscreen({ navigationUI: 'hide' }).then(() => {
-    try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* nic */ }
+    try { screen.orientation.lock('landscape-primary').catch(() => {}); } catch (e) { /* nic */ }
   }).catch(() => {});
 }
 document.addEventListener('fullscreenchange', () => setTimeout(render, 60));

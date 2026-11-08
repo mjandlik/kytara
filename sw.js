@@ -1,5 +1,5 @@
 // Kytara – service worker: aplikace funguje i offline, nová verze se načte, když je síť.
-const CACHE = 'kytara-v01';
+const CACHE = 'kytara-v02';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {
