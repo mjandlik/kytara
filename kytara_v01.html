@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#161618">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<title>Kytara – stupnice</title>
+<style>
+html,body{margin:0;height:100%;background:#161618;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#d8d8dc;-webkit-tap-highlight-color:transparent}
+#stage{position:fixed;left:0;top:0;right:0;bottom:0;touch-action:none}
+#board{position:absolute;left:0;top:0;display:block}
+.rot{position:fixed;transform:rotate(90deg);transform-origin:0 0;box-sizing:border-box}
+#pin{display:flex;flex-direction:column;gap:.2rem}
+.grp{display:flex;flex-direction:column;gap:.1rem}
+.lbl{font-size:.21rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#8b8b90;display:flex;align-items:center;gap:.12rem}
+.row{display:flex;gap:.09rem}
+.grid6{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.08rem}
+button.b{height:.78rem;flex:1 1 0;min-width:0;border-radius:.16rem;border:1px solid #38383f;background:#26262a;color:#d8d8dc;font:500 .27rem/1 system-ui,-apple-system,Roboto,sans-serif;padding:0 .04rem;touch-action:manipulation;display:flex;align-items:center;justify-content:center;gap:.06rem;white-space:nowrap;overflow:hidden}
+button.b.on{background:#d6d6d9;border-color:#d6d6d9;color:#161618;font-weight:600}
+button.b:active{filter:brightness(1.25)}
+button.b[disabled]{opacity:.35}
+button.b svg{width:.36rem;height:.36rem;flex:none}
+.disp{flex:1 1 0;text-align:center;align-self:center;font-size:.28rem;font-weight:600;color:#ececee;white-space:nowrap}
+select.sel{height:.78rem;flex:1 1 0;min-width:0;border-radius:.16rem;border:1px solid #38383f;background:#26262a;color:#d8d8dc;font:500 .25rem system-ui,Roboto,sans-serif;padding:0 .1rem}
+#beat{width:.18rem;height:.18rem;border-radius:50%;background:#3a3a40;display:inline-block}
+#beat.hit{background:#a06ee0}
+.arrow{position:fixed;box-sizing:border-box}
+.modal{background:#161618;overflow-y:auto;padding:.5rem .55rem;display:flex;flex-direction:column;gap:.28rem;z-index:5}
+.modal h2{margin:0;font-size:.4rem;font-weight:700;color:#ececee;display:flex;align-items:center;justify-content:space-between}
+.modal h2 small{font-size:.22rem;color:#8b8b90;font-weight:500;margin-left:.15rem}
+.modal .note{font-size:.22rem;color:#9a9aa0;line-height:1.35}
+.card{width:8.56rem;height:5.398rem;border:2px solid #a06ee0;border-radius:.32rem;box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#8b8b90;font-size:.24rem;text-align:center;padding:.2rem}
+.tunegrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:.08rem}
+.tunecol{display:flex;flex-direction:column;gap:.06rem;align-items:stretch}
+.tunecol .disp{font-size:.26rem;padding:.08rem 0}
+.tunecol button.b{flex:none}
+#start{z-index:10;background:rgba(10,10,12,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.25rem;text-align:center;padding:.6rem}
+#start b{font-size:.5rem;color:#ececee}
+#start span{font-size:.26rem;color:#9a9aa0;max-width:11rem;line-height:1.4}
+#board .fl{stroke:#ffffff;stroke-width:.7;opacity:1}
+[hidden]{display:none !important}
+</style>
+</head>
+<body>
+<div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg></div>
+<div id="panel" class="rot"></div>
+<button id="arrL" class="b arrow" aria-label="posunout k tělu"></button>
+<button id="arrR" class="b arrow" aria-label="posunout k hlavě"></button>
+<div id="settings" class="rot modal" hidden></div>
+<div id="start" class="rot"><b>Ťukni kamkoli</b><span>Zapne se zvuk a celá obrazovka.</span></div>
+<noscript>Aplikace potřebuje zapnutý JavaScript.</noscript>
+<script>
+(() => {
+'use strict';
+const VERSION = 'v01';
+const LS = 'kytara.state.v1';
+const TAB_W_MM = 236.9;                       // Galaxy Tab S11, šířka displeje na šířku
+const STD = [40, 45, 50, 55, 59, 64];         // E2 A2 D3 G3 H3 E4 (MIDI)
+const TUNINGS = [
+  ['Standard E', [40, 45, 50, 55, 59, 64]],
+  ['Drop D', [38, 45, 50, 55, 59, 64]],
+  ['Eb standard', [39, 44, 49, 54, 58, 63]],
+  ['D standard', [38, 43, 48, 53, 57, 62]],
+  ['Drop C', [36, 43, 48, 53, 57, 62]],
+];
+const SCALES = {
+  mpb: {
+    name: 'Moll pentatonika + blues', tones: [0, 3, 5, 7, 10], blue: [6],
+    // pražce vůči základnímu tónu na struně E ve standardním ladění, struny E A D G H e
+    boxes: {
+      E: [[0, 3], [0, 2], [0, 2], [0, 2], [0, 3], [0, 3]],
+      D: [[3, 5], [2, 5], [2, 5], [2, 4], [3, 5], [3, 5]],
+      C: [[5, 7], [5, 7], [5, 7], [4, 7], [5, 8], [5, 7]],
+      A: [[7, 10], [7, 10], [7, 9], [7, 9], [8, 10], [7, 10]],
+      G: [[10, 12], [10, 12], [9, 12], [9, 12], [10, 12], [10, 12]],
+    },
+  },
+};
+const BOX_ORDER = ['E', 'D', 'C', 'A', 'G'];
+const BOX_COL = { E: '#c08a4a', D: '#6d93bf', C: '#8fae6a', A: '#b77fa0', G: '#9a8fc7' };
+const STRIPE_COL = ['#9a5f55', '#9c8350', '#73885a', '#4f8a83', '#5f739a', '#8a6a94'];
+const GAUGE = [1.17, 0.91, 0.66, 0.43, 0.33, 0.25];
+const SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'H'];
+const FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'B', 'H'];
+const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'B', 'H'];
+const SHARP_ROOTS = new Set([1, 6, 11]);      // C#, F#, H
+const INLAY = [3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
+const PURPLE = '#a06ee0';
+const NF = 24;
+const NSTR = 6;
+const PW = 30, PICK_HALF = 2.6, SP = 10.5, FRAME_X = PW + 50;
+
+const DEF = {
+  mode: 2, root: 11, scale: 'mpb', boxes: ['E'], showScale: true, names: 'root', slide: true, pos: 7, bpm: 80,
+  set: { strings: 6, tuningName: 'Standard E', tuning: STD.slice(), scaleLen: 648, nutW: 42, pxmm: 0,
+         slideStr: 0.4, legatoStr: 0.5, volume: 0.8 },
+};
+const S = load();
+function load() {
+  try {
+    const o = JSON.parse(localStorage.getItem(LS) || 'null');
+    if (o) return Object.assign({}, JSON.parse(JSON.stringify(DEF)), o, { set: Object.assign({}, DEF.set, o.set || {}) });
+  } catch (e) { /* nic */ }
+  return JSON.parse(JSON.stringify(DEF));
+}
+function save() { try { localStorage.setItem(LS, JSON.stringify(S)); } catch (e) { /* nic */ } }
+
+const $ = id => document.getElementById(id);
+const board = $('board'), stage = $('stage'), panel = $('panel'), setEl = $('settings');
+const mod = (a, n) => ((a % n) + n) % n;
+const P = v => (Math.round(v * 100) / 100).toString();
+
+// ---------- geometrie (vše v mm) ----------
+let W = 237, H = 148, PX = 5.4, X0 = 0, FRAME_B = 75, MC = 66, ML = 93, MR = 219, MK = 0.25, PANEL_B = 55;
+function defaultPx() { return Math.max(screen.width, screen.height) / TAB_W_MM; }
+function d(n) { return S.set.scaleLen * (1 - Math.pow(2, -n / 12)); }
+function fbEnd() { return d(NF) + 7; }
+function fbw(x) { x = Math.max(0, Math.min(x, fbEnd())); return S.set.nutW + 14 * x / d(NF); }
+function spread(x) { x = Math.max(0, x); const s0 = S.set.nutW - 7, s1 = 52.5; return s0 + (s1 - s0) * x / S.set.scaleLen; }
+function X(x) { return W - (x - X0); }
+function xOf(sx) { return X0 + (W - sx); }
+function topY(x) { return H - fbw(x); }
+function strY(i, x) { x = Math.max(0, x); const c = H - fbw(x) / 2, s = spread(x); return c - s / 2 + i * s / (NSTR - 1); }
+function noteX(f) { return f === 0 ? -4.5 : d(f - 1) + 0.58 * (d(f) - d(f - 1)); }
+function x0For(p) { return p === 0 ? -14 : d(p - 1) - 3; }
+function pMax() { for (let p = 0; p <= NF; p++) if (x0For(p) + W >= fbEnd() + 6) return p; return NF; }
+function mh(x) { return fbw(x) * MK * 0.75 / 2; }
+function MX(x) { return MR - x * MK; }
+function pickY(i) { const ye = Math.max(H - (S.set.nutW + 14) - 25.5, 6 + (NSTR - 1) * SP); return ye - (NSTR - 1 - i) * SP; }
+function layout() {
+  PX = S.set.pxmm || defaultPx();
+  document.documentElement.style.fontSize = (PX * 10) + 'px';   // 1rem = 1 cm
+  W = innerWidth / PX; H = innerHeight / PX;
+  S.pos = Math.max(0, Math.min(S.pos, pMax()));
+  X0 = x0For(S.pos);
+  FRAME_B = H - (S.set.nutW + 14) - 17;
+  MC = FRAME_B - 8.5;
+  ML = FRAME_X + 3 + 8.5 + 2; MR = W - 4 - 3 - 8.5 - 2;
+  MK = (MR - ML) / (fbEnd() + 4);
+  PANEL_B = MC - mh(fbEnd()) - 5.5;
+}
+
+// ---------- hudební logika ----------
+function tuning() { return S.set.tuning; }
+function nameOf(midi) { return (SHARP_ROOTS.has(S.root) ? SHARP : FLAT)[mod(midi, 12)]; }
+function kindOf(i, f) {
+  const sc = SCALES[S.scale], iv = mod(tuning()[i] + f - S.root, 12);
+  if (iv === 0) return 'root';
+  if (sc.tones.includes(iv)) return 'tone';
+  if (sc.blue.includes(iv)) return 'blue';
+  return null;
+}
+function boxOccurrences() {
+  const sc = SCALES[S.scale], r = mod(S.root - 4, 12), out = [];
+  for (const k of BOX_ORDER) {
+    if (!S.boxes.includes(k)) continue;
+    const def = sc.boxes[k];
+    for (const m of [-12, 0, 12, 24]) {
+      const lo = [], hi = [];
+      let ok = true;
+      for (let i = 0; i < NSTR; i++) {
+        const off = STD[i] - tuning()[i];
+        const a = r + def[i][0] + m + off, b = r + def[i][1] + m + off;
+        if (a < 0 || b > NF) { ok = false; break; }
+        lo.push(a); hi.push(b);
+      }
+      if (ok) out.push({ k, lo, hi });
+    }
+  }
+  return out;
+}
+function scaleNotes(occ) {
+  const notes = new Map();
+  if (!S.showScale) return notes;
+  if (!S.boxes.length) {
+    for (let i = 0; i < NSTR; i++) for (let f = 0; f <= NF; f++) { const k = kindOf(i, f); if (k) notes.set(i + '_' + f, k); }
+    return notes;
+  }
+  for (const o of occ) {
+    const fmin = Math.min(...o.lo), fmax = Math.max(...o.hi);
+    for (let i = 0; i < NSTR; i++) {
+      for (const f of [o.lo[i], o.hi[i]]) notes.set(i + '_' + f, kindOf(i, f) || 'tone');
+      for (let f = Math.max(0, fmin - 1); f <= Math.min(NF, fmax + 1); f++) {
+        if (kindOf(i, f) === 'blue' && !notes.has(i + '_' + f)) notes.set(i + '_' + f, 'blue');
+      }
+    }
+  }
+  return notes;
+}
+function stringLabels() {
+  const n = tuning().map(m => FLAT[mod(m, 12)]);
+  if (n[NSTR - 1] === n[0]) n[NSTR - 1] = n[NSTR - 1].toLowerCase();
+  return n;
+}
+function posLabel() {
+  let last = 0;
+  for (let n = 1; n <= NF; n++) if (d(n) <= X0 + W) last = n;
+  return `${S.pos}.–${last}. pražec`;
+}
+
+// ---------- vykreslení ----------
+function txtR(x, y, s, size, fill, weight) {
+  return `<text x="${P(x)}" y="${P(y)}" transform="rotate(90 ${P(x)} ${P(y)})" font-size="${size}" font-weight="${weight || 600}" fill="${fill}" text-anchor="middle" dominant-baseline="central">${s}</text>`;
+}
+function render() {
+  layout();
+  const o = [];
+  board.setAttribute('viewBox', `0 0 ${P(W)} ${P(H)}`);
+  board.setAttribute('width', innerWidth); board.setAttribute('height', innerHeight);
+  o.push('<defs><linearGradient id="fg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#55595e"/><stop offset=".4" stop-color="#b4b8bd"/><stop offset=".65" stop-color="#eef0f2"/><stop offset="1" stop-color="#5d6166"/></linearGradient></defs>');
+  o.push('<g font-family="system-ui,-apple-system,Roboto,sans-serif">');
+  const xa = Math.max(0, X0), xb = Math.min(fbEnd(), X0 + W);
+  // hlava
+  if (X0 < 0) {
+    o.push(`<rect x="${P(X(0))}" y="${P(topY(0) - 3)}" width="${P(W - X(0) + 1)}" height="${P(H - topY(0) + 3)}" fill="#2b2b30"/>`);
+    o.push(`<rect x="${P(X(0))}" y="${P(topY(0) - 3)}" width="${P(W - X(0) + 1)}" height="1.1" fill="#e3d8bd"/>`);
+  }
+  // tělo za koncem hmatníku
+  if (X0 + W > fbEnd()) {
+    const xe = X(fbEnd());
+    o.push(`<rect x="-5" y="${P(topY(fbEnd()) - 8)}" width="${P(xe + 5)}" height="${P(H - topY(fbEnd()) + 12)}" rx="6" fill="#111113" stroke="#e3d8bd" stroke-width="0.9"/>`);
+  }
+  // hmatník
+  if (xa < xb) {
+    o.push(`<polygon points="${P(X(xb))},${P(topY(xb))} ${P(X(xa))},${P(topY(xa))} ${P(X(xa))},${P(H)} ${P(X(xb))},${P(H)}" fill="#1e1915"/>`);
+    for (let k = 0; k < 11; k++) {
+      const t = (k + 0.5) / 11, pts = [];
+      for (let x = xa; x <= xb + 0.1; x += Math.max(8, (xb - xa) / 24)) {
+        const xx = Math.min(x, xb);
+        pts.push(`${P(X(xx))},${P(topY(xx) + t * fbw(xx) + 0.45 * Math.sin(xx * 0.043 + k * 1.7))}`);
+      }
+      o.push(`<polyline points="${pts.join(' ')}" fill="none" stroke="#2c241e" stroke-width="${(0.15 + (k * 37 % 10) / 40).toFixed(2)}" opacity="0.7"/>`);
+    }
+    o.push(`<polygon points="${P(X(xb))},${P(topY(xb))} ${P(X(xa))},${P(topY(xa))} ${P(X(xa))},${P(topY(xa) + 1.2)} ${P(X(xb))},${P(topY(xb) + 1.2)}" fill="#e3d8bd"/>`);
+    o.push(`<rect x="${P(X(xb))}" y="${P(H - 1.2)}" width="${P(X(xa) - X(xb))}" height="1.2" fill="#e3d8bd"/>`);
+  }
+  // nultý pražec
+  if (X0 < 0) o.push(`<rect x="${P(X(0))}" y="${P(topY(0))}" width="3" height="${P(fbw(0))}" fill="#0e0e0f" stroke="#7a7a80" stroke-width="0.3"/>`);
+  // pražce
+  for (let n = 1; n <= NF; n++) {
+    const xn = d(n); if (xn < xa - 2 || xn > xb + 2) continue;
+    const yt = topY(xn) + 1.2;
+    o.push(`<rect x="${P(X(xn) - 1.2)}" y="${P(yt)}" width="2.4" height="${P(H - 1.2 - yt)}" rx="0.7" fill="url(#fg)"/>`);
+  }
+  // značky (tečky, na oktávách dvojtečky)
+  for (const n of INLAY) {
+    const xm = (d(n - 1) + d(n)) / 2, sx = X(xm);
+    if (sx < 2 || sx > W - 2) continue;
+    const ys = (n === 12 || n === 24) ? [(strY(1, xm) + strY(2, xm)) / 2, (strY(3, xm) + strY(4, xm)) / 2] : [(strY(2, xm) + strY(3, xm)) / 2];
+    for (const y of ys) o.push(`<circle cx="${P(sx)}" cy="${P(y)}" r="2.6" fill="#e8e3d6" opacity="0.88"/>`);
+  }
+  // struny
+  for (let i = 0; i < NSTR; i++) {
+    const g = Math.max(GAUGE[i], 0.3);
+    const pts = [[W, strY(i, X0)]];
+    if (X0 < 0) pts.push([X(0), strY(i, 0)]);
+    pts.push([0, strY(i, X0 + W)]);
+    const p = pts.map(q => `${P(q[0])},${P(q[1])}`).join(' ');
+    const ps = pts.map(q => `${P(q[0])},${P(q[1] + 0.45)}`).join(' ');
+    o.push(`<polyline points="${ps}" fill="none" stroke="#000" stroke-width="${g}" opacity="0.45"/>`);
+    if (i < 3) {
+      o.push(`<polyline points="${p}" fill="none" stroke="#b9b3a6" stroke-width="${g}"/>`);
+      o.push(`<polyline points="${p}" fill="none" stroke="#6f6a61" stroke-width="${(g * 0.9).toFixed(2)}" stroke-dasharray="0.22 0.3"/>`);
+    } else {
+      o.push(`<polyline points="${p}" fill="none" stroke="#dfe2e5" stroke-width="${g}"/>`);
+    }
+  }
+  // boxy – obrys přes krajní tóny
+  const occ = S.showScale ? boxOccurrences() : [];
+  const pos = (i, f) => { const x = noteX(f); return [X(x), strY(i, x)]; };
+  for (const b of occ) {
+    const pts = [];
+    for (let i = 0; i < NSTR; i++) pts.push(pos(i, b.lo[i]));
+    for (let i = NSTR - 1; i >= 0; i--) pts.push(pos(i, b.hi[i]));
+    if (pts.every(q => q[0] < -5) || pts.every(q => q[0] > W + 5)) continue;
+    o.push(`<polygon points="${pts.map(q => P(q[0]) + ',' + P(q[1])).join(' ')}" fill="${BOX_COL[b.k]}" fill-opacity="0.1" stroke="${BOX_COL[b.k]}" stroke-width="0.8" stroke-linejoin="round"/>`);
+    const xm = (noteX(Math.min(...b.lo)) + noteX(Math.max(...b.hi))) / 2, sx = X(xm), ty = topY(xm) - 10.5;
+    if (sx > 4 && sx < W - 4) {
+      o.push(`<rect x="${P(sx - 3.5)}" y="${P(ty - 3)}" width="7" height="6" rx="3" fill="${BOX_COL[b.k]}"/>`);
+      o.push(txtR(sx, ty, b.k, 3.8, '#161618', 700));
+    }
+  }
+  // čísla pražců
+  for (let n = 1; n <= NF; n++) {
+    const xm = (d(n - 1) + d(n)) / 2, sx = X(xm);
+    if (sx > 3 && sx < W - 3) o.push(txtR(sx, topY(xm) - 3.6, n, 3.2, '#7c7c82', 500));
+  }
+  // tóny stupnice
+  const notes = scaleNotes(occ);
+  const FILL = { tone: '#8e8e93', root: '#d9d9dc', blue: '#68686d' };
+  for (const [key, kind] of notes) {
+    const [i, f] = key.split('_').map(Number);
+    const [sx, sy] = pos(i, f);
+    if (sx < 1 || sx > W - 1) continue;
+    o.push(`<circle cx="${P(sx)}" cy="${P(sy)}" r="2.9" fill="${FILL[kind]}" stroke="${PURPLE}" stroke-width="0.55"/>`);
+    if (S.names === 'all' || (S.names === 'root' && kind === 'root')) {
+      o.push(txtR(sx, sy, nameOf(tuning()[i] + f), 3.3, kind === 'root' ? '#161618' : '#f2f2f4', 700));
+    }
+  }
+  // brnkací oblast
+  const lab = stringLabels();
+  for (let i = 0; i < NSTR; i++) {
+    const y = pickY(i);
+    o.push(`<rect id="st${i}" x="-4" y="${P(y - 2)}" width="${PW + 4}" height="4" rx="2" fill="${STRIPE_COL[i]}" opacity="0.9"/>`);
+    o.push(`<line x1="0" y1="${P(y)}" x2="${PW - 1.5}" y2="${P(y)}" stroke="#d9dbde" stroke-width="${Math.max(GAUGE[i] * 0.8, 0.3).toFixed(2)}" opacity="0.75"/>`);
+    o.push(txtR(3.2, y, lab[i], 3.1, '#f0efe9', 700));
+  }
+  // nastavovací oblast + mapa krku
+  o.push(`<rect x="${FRAME_X}" y="2" width="${P(W - 4 - FRAME_X)}" height="${P(FRAME_B - 2)}" rx="3" fill="#1b1b1e" stroke="#4a4a52" stroke-width="0.4"/>`);
+  const NL = fbEnd();
+  o.push(`<polygon points="${P(MX(NL))},${P(MC - mh(NL))} ${P(MR)},${P(MC - mh(0))} ${P(MR)},${P(MC + mh(0))} ${P(MX(NL))},${P(MC + mh(NL))}" fill="#1e1915" stroke="#e3d8bd" stroke-width="0.4"/>`);
+  o.push(`<line x1="${P(MR)}" y1="${P(MC - mh(0))}" x2="${P(MR)}" y2="${P(MC + mh(0))}" stroke="#d8d8d8" stroke-width="1"/>`);
+  for (let n = 1; n <= NF; n++) o.push(`<line x1="${P(MX(d(n)))}" y1="${P(MC - mh(d(n)))}" x2="${P(MX(d(n)))}" y2="${P(MC + mh(d(n)))}" stroke="#9a9da1" stroke-width="0.3"/>`);
+  for (const n of INLAY) {
+    const xm = (d(n - 1) + d(n)) / 2;
+    const dys = (n === 12 || n === 24) ? [-mh(xm) * 0.42, mh(xm) * 0.42] : [0];
+    for (const dy of dys) o.push(`<circle cx="${P(MX(xm))}" cy="${P(MC + dy)}" r="0.65" fill="#e3dfd4"/>`);
+    o.push(txtR(MX(xm), MC - mh(xm) - 2.4, n, 2.6, '#7c7c82', 500));
+  }
+  for (const b of occ) {
+    const pts = [];
+    const mp = (i, f) => { const x = noteX(f); return [MX(x), MC + (strY(i, x) - (H - fbw(x) / 2)) * MK * 0.75]; };
+    for (let i = 0; i < NSTR; i++) pts.push(mp(i, b.lo[i]));
+    for (let i = NSTR - 1; i >= 0; i--) pts.push(mp(i, b.hi[i]));
+    o.push(`<polygon points="${pts.map(q => P(q[0]) + ',' + P(q[1])).join(' ')}" fill="${BOX_COL[b.k]}" fill-opacity="0.25" stroke="${BOX_COL[b.k]}" stroke-width="0.45" stroke-linejoin="round"/>`);
+  }
+  const wa = MX(Math.max(X0, -4)), wb = MX(Math.min(X0 + W, NL + 4)), h3 = mh(NL) + 1.4;
+  o.push(`<rect x="${P(wb)}" y="${P(MC - h3)}" width="${P(wa - wb)}" height="${P(2 * h3)}" rx="0.8" fill="#fff" fill-opacity="0.08" stroke="#f2f2f4" stroke-width="0.55"/>`);
+  o.push('<g id="fx"></g></g>');
+  board.innerHTML = o.join('');
+  renderFx();
+  renderPanel();
+}
+function renderFx() {
+  const fx = $('fx'); if (!fx) return;
+  const o = [];
+  for (const p of ptrs.values()) {
+    if (p.k !== 'f') continue;
+    const x = noteX(p.f);
+    o.push(`<circle cx="${P(X(x))}" cy="${P(strY(p.i, x))}" r="3.8" fill="#ffffff" fill-opacity="0.18" stroke="#ffffff" stroke-opacity="0.7" stroke-width="0.4"/>`);
+  }
+  fx.innerHTML = o.join('');
+}
+
+// ---------- ovládací panel (otočený o 90° po směru hodin) ----------
+const ICON = {
+  play: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5 L19 12 L8 19 Z" fill="currentColor"/></svg>',
+  stop: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></svg>',
+  fsOut: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 L9 9 L4 9 M15 4 L15 9 L20 9 M9 20 L9 15 L4 15 M15 20 L15 15 L20 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  fsIn: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9 L4 4 L9 4 M20 9 L20 4 L15 4 M4 15 L4 20 L9 20 M20 15 L20 20 L15 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  left: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6 L9 12 L15 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  right: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6 L15 12 L9 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+function btn(label, act, on, extra) {
+  return `<button type="button" class="b${on ? ' on' : ''}" data-a="${act}" ${extra || ''}>${label}</button>`;
+}
+function isFs() { return !!document.fullscreenElement; }
+function renderPanel() {
+  const px = v => (v * PX) + 'px';
+  Object.assign(panel.style, { left: px(W - 7), top: px(4), width: px(PANEL_B - 4), height: px(W - 7 - (FRAME_X + 3)) });
+  const ar = $('arrL'), br = $('arrR');
+  Object.assign(ar.style, { left: px(FRAME_X + 3), top: px(MC - 4.25), width: px(8.5), height: px(8.5) });
+  Object.assign(br.style, { left: px(W - 7 - 8.5), top: px(MC - 4.25), width: px(8.5), height: px(8.5) });
+  ar.innerHTML = ICON.left; br.innerHTML = ICON.right;
+  ar.dataset.a = 'pos:1'; br.dataset.a = 'pos:-1';
+  const sc = Object.entries(SCALES).map(([k, v]) => `<option value="${k}"${k === S.scale ? ' selected' : ''}>${v.name}</option>`).join('');
+  const boxes = BOX_ORDER.map(k => {
+    const on = S.boxes.includes(k);
+    return `<button type="button" class="b" data-a="box:${k}" aria-pressed="${on}" style="${on ? `background:${BOX_COL[k]};border-color:${BOX_COL[k]};color:#161618;font-weight:700` : ''}">${k}</button>`;
+  }).join('');
+  const availW = PANEL_B - 4, availH = W - 7 - (FRAME_X + 3);
+  const z = Math.min(1, availW / 51.7, availH / 128);
+  panel.innerHTML = `<div id="pin" style="zoom:${z};width:${availW * PX / z}px;height:${availH * PX / z}px">
+<div class="grp"><div class="lbl">Režim</div><div class="row">${btn('1 ruka', 'mode:1', S.mode === 1)}${btn('2 ruce', 'mode:2', S.mode === 2)}</div></div>
+<div class="grp"><div class="lbl">Tónina</div><div class="grid6">${KEYS.map((k, pc) => btn(k, 'root:' + pc, S.root === pc)).join('')}</div></div>
+<div class="grp"><div class="lbl">Stupnice</div><div class="row"><select class="sel" data-a="scale" aria-label="stupnice">${sc}</select>${btn('zobrazit', 'show', S.showScale, 'style="flex:0 0 30%"')}</div></div>
+<div class="grp"><div class="lbl">Boxy</div><div class="row">${boxes}</div></div>
+<div class="grp"><div class="lbl">Názvy tónů</div><div class="row">${btn('vyp', 'names:off', S.names === 'off')}${btn('základní', 'names:root', S.names === 'root')}${btn('vše', 'names:all', S.names === 'all')}</div></div>
+<div class="grp"><div class="lbl">Slide</div><div class="row">${btn('zap', 'slide:1', S.slide)}${btn('vyp', 'slide:0', !S.slide)}</div></div>
+<div class="grp"><div class="lbl">Poloha</div><div class="disp">${posLabel()}</div></div>
+<div class="grp"><div class="lbl">Metronom <span id="beat"></span></div><div class="row">${btn('−', 'bpm:-1', false, 'data-hold="1" aria-label="zpomalit"')}<div class="disp">${S.bpm} BPM</div>${btn('+', 'bpm:1', false, 'data-hold="1" aria-label="zrychlit"')}${btn(metro.on ? ICON.stop : ICON.play, 'metro', metro.on, `aria-label="${metro.on ? 'zastavit' : 'spustit'} metronom"`)}</div></div>
+<div class="row">${btn('Nastavení', 'settings')}${btn((isFs() ? ICON.fsOut + 'Opustit' : ICON.fsIn + 'Celá obrazovka'), 'fs', false, 'style="font-size:.23rem"')}</div></div>`;
+}
+
+// ---------- nastavení ----------
+let settingsOpen = false;
+function stepper(label, act, value) {
+  return `<div class="grp"><div class="lbl">${label}</div><div class="row">${btn('−', act + ':-1')}<div class="disp">${value}</div>${btn('+', act + ':1')}</div></div>`;
+}
+function midiName(m) { return FLAT[mod(m, 12)] + (Math.floor(m / 12) - 1); }
+function renderSettings() {
+  setEl.hidden = !settingsOpen;
+  if (!settingsOpen) return;
+  const px = v => (v * PX) + 'px';
+  Object.assign(setEl.style, { left: px(W), top: '0px', width: px(H), height: px(W) });
+  const t = tuning();
+  const tsel = TUNINGS.map(([n]) => `<option${n === S.set.tuningName ? ' selected' : ''}>${n}</option>`).join('') +
+    (TUNINGS.some(([n]) => n === S.set.tuningName) ? '' : '<option selected>Vlastní</option>');
+  const cols = t.map((m, i) => `<div class="tunecol">${btn('+', 'tune:' + i + ':1', false, `aria-label="struna ${i + 1} výš"`)}<div class="disp">${midiName(m)}</div>${btn('−', 'tune:' + i + ':-1', false, `aria-label="struna ${i + 1} níž"`)}</div>`).join('');
+  setEl.innerHTML = `
+<h2><span>Nastavení<small>Kytara ${VERSION}</small></span>${btn('Zavřít', 'close', false, 'style="flex:0 0 22%"')}</h2>
+<div class="grp"><div class="lbl">Počet strun</div><div class="row">${btn('6 strun', 'noop', true)}${btn('7 strun – připravuji', 'noop', false, 'disabled')}</div></div>
+<div class="grp"><div class="lbl">Ladění (od nejhlubší struny)</div><div class="row"><select class="sel" data-a="tuning" aria-label="ladění">${tsel}</select></div><div class="tunegrid">${cols}</div></div>
+<div class="grp"><div class="lbl">Menzura</div><div class="row">${[628, 648, 673, 686].map(v => btn(v + ' mm', 'scalelen:' + v, S.set.scaleLen === v)).join('')}</div></div>
+${stepper('Menzura – jemně', 'scalestep', S.set.scaleLen + ' mm')}
+${stepper('Šířka hmatníku u nultého pražce', 'nut', S.set.nutW.toFixed(1).replace('.', ',') + ' mm')}
+${stepper('Síla tónu při slidu', 'slidestr', Math.round(S.set.slideStr * 100) + ' %')}
+${stepper('Síla tónu po uvolnění prstu a hammer-on', 'legstr', Math.round(S.set.legatoStr * 100) + ' %')}
+${stepper('Hlasitost', 'vol', Math.round(S.set.volume * 100) + ' %')}
+<div class="grp"><div class="lbl">Kalibrace skutečné velikosti</div>
+<div class="note">Přilož platební kartu na fialový obdélník a tlačítky ho uprav, až bude přesně stejně velký.</div>
+<div class="card">platební karta<br>85,6 × 54 mm</div>
+<div class="row">${btn('−−', 'cal:-10')}${btn('−', 'cal:-1')}${btn('+', 'cal:1')}${btn('++', 'cal:10')}${btn('Výchozí', 'cal:0')}</div></div>`;
+}
+
+// ---------- akce ----------
+function act(a) {
+  const [k, v, w] = a.split(':');
+  const n = Number(v);
+  switch (k) {
+    case 'mode': S.mode = n; break;
+    case 'root': S.root = n; break;
+    case 'show': S.showScale = !S.showScale; break;
+    case 'box': S.boxes = S.boxes.includes(v) ? S.boxes.filter(b => b !== v) : S.boxes.concat(v); break;
+    case 'names': S.names = v; break;
+    case 'slide': S.slide = n === 1; break;
+    case 'bpm': S.bpm = Math.max(30, Math.min(250, S.bpm + n)); break;
+    case 'metro': ensureAudio(); metro.on ? metroStop() : metroStart(); break;
+    case 'pos': S.pos = Math.max(0, Math.min(pMax(), S.pos + n)); break;
+    case 'settings': settingsOpen = true; break;
+    case 'close': settingsOpen = false; break;
+    case 'fs': toggleFs(); return;
+    case 'tune': {
+      const i = n, dlt = Number(w);
+      S.set.tuning = S.set.tuning.slice(); S.set.tuning[i] = Math.max(24, Math.min(76, S.set.tuning[i] + dlt));
+      const m = TUNINGS.find(([, tt]) => tt.every((x, j) => x === S.set.tuning[j]));
+      S.set.tuningName = m ? m[0] : 'Vlastní';
+      break;
+    }
+    case 'scalelen': S.set.scaleLen = n; break;
+    case 'scalestep': S.set.scaleLen = Math.max(550, Math.min(760, S.set.scaleLen + n)); break;
+    case 'nut': S.set.nutW = Math.max(38, Math.min(52, Math.round((S.set.nutW + n * 0.5) * 10) / 10)); break;
+    case 'slidestr': S.set.slideStr = Math.max(0, Math.min(1, Math.round((S.set.slideStr + n * 0.1) * 10) / 10)); break;
+    case 'legstr': S.set.legatoStr = Math.max(0, Math.min(1, Math.round((S.set.legatoStr + n * 0.1) * 10) / 10)); break;
+    case 'vol': S.set.volume = Math.max(0, Math.min(1, Math.round((S.set.volume + n * 0.1) * 10) / 10)); if (master) master.gain.value = S.set.volume; break;
+    case 'cal': S.set.pxmm = n === 0 ? 0 : (S.set.pxmm || defaultPx()) * (1 + n * 0.001); break;
+    default: return;
+  }
+  save(); render(); renderSettings();
+}
+function onClick(e) {
+  const b = e.target.closest('[data-a]');
+  if (!b || b.tagName === 'SELECT' || b.dataset.hold) return;
+  act(b.dataset.a);
+}
+function onChange(e) {
+  const s = e.target;
+  if (s.dataset.a === 'scale') { S.scale = s.value; save(); render(); }
+  if (s.dataset.a === 'tuning') {
+    const m = TUNINGS.find(([n]) => n === s.value);
+    if (m) { S.set.tuningName = m[0]; S.set.tuning = m[1].slice(); save(); render(); renderSettings(); }
+  }
+}
+let holdT = null;
+function onHoldDown(e) {
+  const b = e.target.closest('[data-hold]');
+  if (!b) return;
+  e.preventDefault();
+  const a = b.dataset.a;
+  act(a);
+  clearTimeout(holdT);
+  holdT = setTimeout(function rep() { act(a); holdT = setTimeout(rep, 70); }, 450);
+}
+function onHoldUp() { clearTimeout(holdT); holdT = null; }
+for (const el of [panel, setEl, $('arrL'), $('arrR')]) {
+  el.addEventListener('click', onClick);
+  el.addEventListener('change', onChange);
+  el.addEventListener('pointerdown', onHoldDown);
+}
+addEventListener('pointerup', onHoldUp);
+addEventListener('pointercancel', onHoldUp);
+
+function toggleFs() {
+  if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+  enterFs();
+}
+function enterFs() {
+  const el = document.documentElement;
+  if (!el.requestFullscreen) return;
+  el.requestFullscreen({ navigationUI: 'hide' }).then(() => {
+    try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* nic */ }
+  }).catch(() => {});
+}
+document.addEventListener('fullscreenchange', () => setTimeout(render, 60));
+addEventListener('resize', () => { render(); renderSettings(); });
+
+// ---------- zvuk (Karplus–Strong) ----------
+let ac = null, master = null;
+const voices = new Array(NSTR).fill(null);
+function ensureAudio() {
+  if (!ac) {
+    const C = window.AudioContext || window.webkitAudioContext;
+    if (!C) return;
+    ac = new C({ latencyHint: 'interactive' });
+    const comp = ac.createDynamicsCompressor();
+    comp.threshold.value = -12; comp.ratio.value = 4; comp.attack.value = 0.002; comp.release.value = 0.15;
+    master = ac.createGain(); master.gain.value = S.set.volume;
+    master.connect(comp); comp.connect(ac.destination);
+  }
+  if (ac.state !== 'running') ac.resume().catch(() => {});
+}
+function ringing(i) {
+  const v = voices[i];
+  return !!(ac && v && !v.stopped && ac.currentTime - v.t0 < v.dur * 0.8);
+}
+const playLog = [];
+function play(i, f, vel, delay) {
+  playLog.push([i, f, Math.round(vel * 100) / 100]); if (playLog.length > 40) playLog.shift();
+  if (!ac || vel <= 0) return;
+  const t = ac.currentTime + 0.004 + (delay || 0);
+  const freq = 440 * Math.pow(2, (tuning()[i] + f - 69) / 12);
+  const sr = ac.sampleRate;
+  const N = Math.max(2, Math.floor(sr / freq - 0.5));
+  const f0 = sr / (N + 0.5);
+  const dur = Math.max(1.1, Math.min(3.4, 0.8 + 170 / freq));
+  const len = Math.floor(sr * dur);
+  const buf = ac.createBuffer(1, len, sr), y = buf.getChannelData(0);
+  const bright = 0.22 + 0.6 * Math.min(1, vel);
+  let lp = 0, mean = 0, pk = 0;
+  for (let n = 0; n < N; n++) { lp += bright * ((Math.random() * 2 - 1) - lp); y[n] = lp; mean += lp; }
+  mean /= N;
+  for (let n = 0; n < N; n++) { y[n] -= mean; pk = Math.max(pk, Math.abs(y[n])); }
+  for (let n = 0; n < N; n++) y[n] /= (pk || 1);
+  const M = Math.max(1, Math.round(N * 0.13));
+  for (let n = N - 1; n >= M; n--) y[n] -= 0.55 * y[n - M];
+  const rho = Math.pow(0.001, 1 / (sr * dur));
+  y[N] = rho * y[0];
+  for (let n = N + 1; n < len; n++) y[n] = rho * 0.5 * (y[n - N] + y[n - N - 1]);
+  const src = ac.createBufferSource(); src.buffer = buf; src.playbackRate.value = freq / f0;
+  const lpf = ac.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 1600 + 5600 * Math.min(1, vel); lpf.Q.value = 0.5;
+  const g = ac.createGain(); const amp = 0.45 * Math.min(1, vel);
+  g.gain.setValueAtTime(amp, t); g.gain.setValueAtTime(amp, t + dur - 0.1); g.gain.linearRampToValueAtTime(0, t + dur);
+  src.connect(lpf); lpf.connect(g); g.connect(master);
+  const old = voices[i];
+  if (old && !old.stopped) {
+    old.g.gain.cancelScheduledValues(t); old.g.gain.setTargetAtTime(0, t, 0.006);
+    try { old.src.stop(t + 0.04); } catch (e) { /* nic */ }
+    old.stopped = true;
+  }
+  src.start(t); src.stop(t + dur);
+  const v = { src, g, t0: t, dur, stopped: false };
+  voices[i] = v;
+  src.onended = () => { v.stopped = true; };
+}
+
+// ---------- metronom ----------
+const metro = { on: false, next: 0, timer: null };
+function metroStart() {
+  if (!ac) return;
+  metro.on = true; metro.next = ac.currentTime + 0.06;
+  metro.timer = setInterval(metroTick, 25);
+}
+function metroStop() { metro.on = false; clearInterval(metro.timer); metro.timer = null; }
+function metroTick() {
+  while (metro.next < ac.currentTime + 0.12) {
+    const t = metro.next;
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'triangle'; o.frequency.value = 1700;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.6, t + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.05);
+    setTimeout(() => { const b = $('beat'); if (b) { b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 90); } }, Math.max(0, (t - ac.currentTime) * 1000));
+    metro.next += 60 / S.bpm;
+  }
+}
+
+// ---------- dotyky ----------
+const holds = Array.from({ length: NSTR }, () => new Map());
+const ptrs = new Map();
+function sounding(i) { let m = 0; for (const f of holds[i].values()) if (f > m) m = f; return m; }
+function hitFret(mx, my, tol) {
+  const x = xOf(mx);
+  if (x <= 0.5 || x > fbEnd()) return null;
+  if (my < topY(x) - (tol || 1.5)) return null;
+  let n = 1; while (n < NF && d(n) < x) n++;
+  if (d(n) < x) return null;
+  let best = 0, bd = 1e9;
+  for (let i = 0; i < NSTR; i++) { const dd = Math.abs(strY(i, x) - my); if (dd < bd) { bd = dd; best = i; } }
+  return { i: best, f: n };
+}
+function inPick(mx, my) { return mx <= PW + 6 && my >= pickY(0) - 6 && my <= pickY(NSTR - 1) + 6; }
+function inMap(mx, my) { return mx >= ML - 1 && mx <= MR + 1 && Math.abs(my - MC) <= mh(fbEnd()) + 3; }
+function press(id, i, f) {
+  const prev = sounding(i); holds[i].set(id, f); const now = sounding(i);
+  if (now === prev) return;
+  if (S.mode === 1) play(i, now, 1);
+  else if (ringing(i)) play(i, now, S.set.legatoStr);
+}
+function release(id, i) {
+  const prev = sounding(i); holds[i].delete(id); const now = sounding(i);
+  if (now === prev) return;
+  if (S.mode === 1 || ringing(i)) play(i, now, S.set.legatoStr);
+}
+function slideTo(id, p, h) {
+  if (h.i === p.i) {
+    const prev = sounding(p.i); holds[p.i].set(id, h.f); const now = sounding(p.i);
+    if (S.slide && now !== prev && (S.mode === 1 || ringing(p.i))) {
+      const step = now > prev ? 1 : -1, count = Math.min(12, Math.abs(now - prev));
+      for (let k = 1; k <= count; k++) play(p.i, k === count ? now : prev + k * step, S.set.slideStr, (k - 1) * 0.012);
+    }
+  } else {
+    holds[p.i].delete(id);
+    const prev = sounding(h.i); holds[h.i].set(id, h.f); const now = sounding(h.i);
+    if (S.slide && now !== prev && (S.mode === 1 || ringing(h.i))) play(h.i, now, S.set.slideStr);
+  }
+  p.i = h.i; p.f = h.f;
+}
+function pickMove(p, mx, my, first) {
+  const order = Array.from({ length: NSTR }, (_, k) => (my < p.lastY ? NSTR - 1 - k : k));
+  for (const k of order) {
+    const c = pickY(k), top = c - PICK_HALF, bot = c + PICK_HALF;
+    const inX = mx <= PW + 6;
+    const inNow = inX && my >= top && my <= bot;
+    const touched = first ? inNow : (inX && Math.max(p.lastY, my) >= top && Math.min(p.lastY, my) <= bot);
+    if (touched && !p.inz[k]) pluck(k);
+    p.inz[k] = inNow;
+  }
+  p.lastY = my;
+}
+function pluck(k) {
+  play(k, sounding(k), 1);
+  const el = $('st' + k);
+  if (el) { el.classList.add('fl'); setTimeout(() => el.classList.remove('fl'), 130); }
+}
+function jumpTo(mx) {
+  const x = (MR - mx) / MK, target = x - W / 2;
+  let best = 0, bd = 1e9;
+  for (let p = 0; p <= pMax(); p++) { const dd = Math.abs(x0For(p) - target); if (dd < bd) { bd = dd; best = p; } }
+  S.pos = best; save(); render();
+}
+stage.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  ensureAudio();
+  const mx = e.clientX / PX, my = e.clientY / PX;
+  const h = hitFret(mx, my);
+  if (h) { ptrs.set(e.pointerId, { k: 'f', i: h.i, f: h.f }); press(e.pointerId, h.i, h.f); renderFx(); return; }
+  if (inPick(mx, my)) { const p = { k: 'p', lastY: my, inz: new Array(NSTR).fill(false) }; ptrs.set(e.pointerId, p); pickMove(p, mx, my, true); return; }
+  if (inMap(mx, my)) jumpTo(mx);
+});
+stage.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId);
+  if (!p) return;
+  const evs = (e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
+  for (const ev of evs) {
+    const mx = ev.clientX / PX, my = ev.clientY / PX;
+    if (p.k === 'p') { pickMove(p, mx, my, false); continue; }
+    const h = hitFret(mx, my, 3);
+    if (!h) { ptrs.delete(e.pointerId); release(e.pointerId, p.i); renderFx(); return; }
+    if (h.i !== p.i || h.f !== p.f) { slideTo(e.pointerId, p, h); renderFx(); }
+  }
+});
+function endPtr(e) {
+  const p = ptrs.get(e.pointerId);
+  if (!p) return;
+  ptrs.delete(e.pointerId);
+  if (p.k === 'f') { release(e.pointerId, p.i); renderFx(); }
+}
+stage.addEventListener('pointerup', endPtr);
+stage.addEventListener('pointercancel', endPtr);
+addEventListener('contextmenu', e => e.preventDefault());
+
+// ---------- start ----------
+const start = $('start');
+function placeStart() {
+  Object.assign(start.style, { left: innerWidth + 'px', top: '0px', width: innerHeight + 'px', height: innerWidth + 'px' });
+}
+placeStart();
+start.addEventListener('pointerup', () => {
+  ensureAudio(); enterFs(); wake();
+  start.remove(); removeEventListener('resize', placeStart);
+});
+addEventListener('resize', placeStart);
+let wakeLock = null;
+function wake() {
+  if (navigator.wakeLock && !wakeLock) navigator.wakeLock.request('screen').then(l => { wakeLock = l; l.addEventListener('release', () => { wakeLock = null; }); }).catch(() => {});
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && !start.isConnected) wake(); });
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+window.__kytara = { S, render, act, playLog, boxOccurrences, scaleNotes, hitFret, pickY, X, noteX, strY, d, get geom() { return { W, H, PX, X0, FRAME_B, MC, ML, MR, PANEL_B }; } };
+render();
+})();
+</script>
+</body>
+</html>

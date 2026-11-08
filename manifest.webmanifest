@@ -1,0 +1,17 @@
+{
+  "name": "Kytara – trénink stupnic",
+  "short_name": "Kytara",
+  "description": "Hmatník kytary ve skutečné velikosti pro trénink stupnic a poloh tónů.",
+  "lang": "cs",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#161618",
+  "theme_color": "#161618",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
