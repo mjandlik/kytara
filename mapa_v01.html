@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#161618">
+<title>Mapa pentatoniky</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #161618; color: #F1EFE8; overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+  #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #panel { position: absolute; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px;
+    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) calc(8px + env(safe-area-inset-left)); z-index: 2; }
+  .btn { width: 80px; min-height: 58px; border-radius: 12px; border: 2px solid #888780; background: #2C2C2A; color: #F1EFE8;
+    font: inherit; font-size: 17px; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; line-height: 1.2; }
+  .btn small { font-size: 14px; font-weight: 400; color: #B4B2A9; }
+  .btn:active { transform: scale(0.97); }
+  #keys { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 5; }
+  #keys.open { display: flex; }
+  #keysGrid { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; background: #1f1f1e; padding: 16px; border-radius: 16px; border: 1px solid #444441; }
+  #keysGrid .btn { width: 72px; }
+  #keysGrid .btn.sel { background: #F1EFE8; color: #2C2C2A; border-color: #F1EFE8; }
+</style>
+</head>
+<body>
+<svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
+<div id="panel"></div>
+<div id="keys"><div id="keysGrid"></div></div>
+<script>
+'use strict';
+// Mapa pentatoniky – verze v01
+const VERSION = 'mapa_v01';
+const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'B', 'H'];
+const OPENS = [40, 45, 50, 55, 59, 64];            // E A D G H e (MIDI)
+const FRETS = 24;
+const BOXES = [                                    // posun začátku boxu od základního tónu na struně E
+  { id: 'E', off: 0,  col: '#D85A30' },
+  { id: 'D', off: 3,  col: '#378ADD' },
+  { id: 'C', off: 5,  col: '#1D9E75' },
+  { id: 'A', off: 7,  col: '#7F77DD' },
+  { id: 'G', off: 10, col: '#D4537E' },
+];
+
+const state = { key: 11, boxes: ['E'], blues: true, all: true };
+try { Object.assign(state, JSON.parse(localStorage.getItem('mapa-state') || '{}')); } catch (e) {}
+function save() { try { localStorage.setItem('mapa-state', JSON.stringify(state)); } catch (e) {} }
+
+const scaleSet = () => new Set([0, 3, 5, 7, 10].map(i => (state.key + i) % 12));
+const bluesPc = () => (state.key + 6) % 12;
+
+// Tóny boxu: na každé struně dva sousední tóny stupnice, navazující na předchozí strunu.
+function boxFrets(start) {
+  const sc = scaleSet();
+  const next = p => { p++; while (!sc.has(p % 12)) p++; return p; };
+  let p = OPENS[0] + start; const lo = [], hi = [];
+  OPENS.forEach((o, i) => {
+    if (i > 0) p = next(p);
+    const l = p, u = next(l);
+    lo.push(l - o); hi.push(u - o); p = u;
+  });
+  return { lo, hi };
+}
+function boxInstances(b) {
+  const base = ((state.key - 4 + 12) % 12) + b.off;
+  const out = [];
+  for (let s = base - 24; s <= FRETS; s += 12) {
+    const f = boxFrets(s);
+    if (Math.min(...f.lo) >= 0 && Math.max(...f.hi) <= FRETS) out.push(f);
+  }
+  return out;
+}
+
+// ---------- ovládání ----------
+const panel = document.getElementById('panel');
+function mkBtn(html, onClick) {
+  const b = document.createElement('button'); b.className = 'btn'; b.innerHTML = html;
+  b.addEventListener('click', onClick); panel.appendChild(b); return b;
+}
+const keyBtn = mkBtn('', () => openKeys());
+const boxBtns = BOXES.map(b => {
+  const el = mkBtn('Box ' + b.id, () => {
+    const i = state.boxes.indexOf(b.id);
+    if (i >= 0) state.boxes.splice(i, 1); else state.boxes.push(b.id);
+    update();
+  });
+  return { b, el };
+});
+const bluesBtn = mkBtn('', () => { state.blues = !state.blues; update(); });
+const allBtn = mkBtn('', () => { state.all = !state.all; update(); });
+
+const keysEl = document.getElementById('keys'), keysGrid = document.getElementById('keysGrid');
+KEYS.forEach((k, i) => {
+  const b = document.createElement('button'); b.className = 'btn'; b.textContent = k;
+  b.addEventListener('click', e => { e.stopPropagation(); state.key = i; keysEl.classList.remove('open'); update(); });
+  keysGrid.appendChild(b);
+});
+keysEl.addEventListener('click', () => keysEl.classList.remove('open'));
+function openKeys() {
+  [...keysGrid.children].forEach((b, i) => b.classList.toggle('sel', i === state.key));
+  keysEl.classList.add('open');
+}
+
+function updateButtons() {
+  keyBtn.innerHTML = 'Tónina<small>' + KEYS[state.key] + ' moll</small>';
+  boxBtns.forEach(({ b, el }) => {
+    const on = state.boxes.includes(b.id);
+    el.style.borderColor = b.col;
+    el.style.background = on ? b.col : '#2C2C2A';
+    el.style.color = on ? '#ffffff' : b.col;
+  });
+  bluesBtn.innerHTML = 'Blues<small>' + (state.blues ? 'zap' : 'vyp') + '</small>';
+  allBtn.innerHTML = 'Tóny<small>' + (state.all ? 'všechny' : 'v boxech') + '</small>';
+}
+
+// ---------- kreslení krku ----------
+const svg = document.getElementById('map');
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  (parent || svg).appendChild(e); return e;
+}
+
+function draw() {
+  const W = window.innerWidth, H = window.innerHeight;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.innerHTML = '';
+  const panelRight = panel.getBoundingClientRect().right;
+
+  const padTop = 30, padBot = 14;
+  const top = padTop, L = (H - padTop - padBot) / 0.75;      // skutečné rozestupy pražců
+  const fy = n => top + L * (1 - Math.pow(2, -n / 12));
+  const ny = n => n === 0 ? top - 13 : (fy(n - 1) + fy(n)) / 2;
+
+  let neckW = Math.min(W * 0.32, 260);
+  let cx = W / 2;
+  if (cx - neckW / 2 < panelRight + 14) cx = panelRight + 14 + neckW / 2;   // nesmí zajet pod tlačítka
+  const x0 = cx - neckW / 2, x1 = cx + neckW / 2;
+  const inset = neckW * 0.09;
+  const sx = i => x0 + inset + i * (neckW - 2 * inset) / 5;
+
+  // hmatník, pražce, struny
+  el('rect', { x: x0, y: top, width: neckW, height: fy(FRETS) - top, fill: '#141414', stroke: '#444441' });
+  for (let n = 1; n <= FRETS; n++) el('line', { x1: x0, y1: fy(n), x2: x1, y2: fy(n), stroke: '#888780', 'stroke-width': 1 });
+  el('line', { x1: x0, y1: top, x2: x1, y2: top, stroke: '#D3D1C7', 'stroke-width': 3 });
+  for (let i = 0; i < 6; i++) el('line', { x1: sx(i), y1: top - 24, x2: sx(i), y2: fy(FRETS), stroke: '#B4B2A9', 'stroke-width': (1.9 - i * 0.27).toFixed(2) });
+
+  // boxy
+  const sc = scaleSet(), bl = bluesPc();
+  const shown = BOXES.filter(b => state.boxes.includes(b.id));
+  const inBox = new Set();
+  const gBox = el('g', {});
+  shown.forEach(b => {
+    boxInstances(b).forEach(f => {
+      const pts = [];
+      for (let i = 0; i < 6; i++) pts.push([sx(i), ny(f.lo[i])]);
+      for (let i = 5; i >= 0; i--) pts.push([sx(i), ny(f.hi[i])]);
+      el('path', { d: 'M' + pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' L') + ' Z',
+        fill: 'none', stroke: b.col, 'stroke-width': 3, 'stroke-linejoin': 'round' }, gBox);
+      const ym = (ny(Math.min(...f.lo)) + ny(Math.max(...f.hi))) / 2;
+      el('text', { x: x1 + 14, y: ym + 7, fill: b.col, 'font-size': 20, 'font-weight': 500 }, gBox, b.id);
+      for (let i = 0; i < 6; i++) for (let n = f.lo[i]; n <= f.hi[i]; n++) inBox.add(i + ':' + n);
+    });
+  });
+
+  // tóny
+  const gN = el('g', {});
+  for (let i = 0; i < 6; i++) {
+    for (let n = 0; n <= FRETS; n++) {
+      const pc = (OPENS[i] + n) % 12;
+      const isBlues = pc === bl, isScale = sc.has(pc);
+      if (!isScale && !(isBlues && state.blues)) continue;
+      if (!state.all && !inBox.has(i + ':' + n)) continue;
+      const x = sx(i), y = ny(n);
+      const room = n === 0 ? 26 : fy(n) - fy(n - 1);
+      const r = Math.max(3.5, Math.min(7, room * 0.3, neckW / 22));
+      if (isBlues) {
+        const k = r * 0.9;
+        el('path', { d: `M${x - k},${y - k} L${x + k},${y + k} M${x + k},${y - k} L${x - k},${y + k}`, stroke: '#F1EFE8', 'stroke-width': 2 }, gN);
+      } else if (pc === state.key) {
+        const rr = Math.max(8, Math.min(11, room * 0.45));
+        el('circle', { cx: x, cy: y, r: rr, fill: '#F1EFE8' }, gN);
+        el('text', { x, y: y + rr * 0.42, 'text-anchor': 'middle', fill: '#2C2C2A', 'font-size': Math.max(11, rr * 1.15), 'font-weight': 600 }, gN, KEYS[state.key]);
+      } else {
+        el('circle', { cx: x, cy: y, r, fill: '#888780' }, gN);
+      }
+    }
+  }
+}
+
+function update() { updateButtons(); save(); draw(); }
+window.addEventListener('resize', draw);
+update();
+</script>
+</body>
+</html>

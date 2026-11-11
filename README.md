@@ -11,3 +11,14 @@ Webová aplikace (PWA) pro Android tablet Galaxy Tab S11: hmatník kytary ve sku
 - mapa krku, metronom, nastavení ladění, menzury a kalibrace velikosti
 
 Verze: `index.html` je vždy aktuální, `kytara_vNN.html` jsou uložené jednotlivé verze.
+
+## Mapa pentatoniky
+
+**Spuštění:** https://mjandlik.github.io/kytara/mapa.html
+
+- jen zobrazení, bez zvuku; telefon nebo tablet na výšku
+- celý krk 0–24, nultý pražec nahoře, krk uprostřed
+- tlačítka vlevo: tónina, boxy E D C A G (víc najednou), bluesové tóny zap/vyp, tóny všechny / jen v boxech
+- základní tóny s písmenem, písmeno boxu vpravo od krku v barvě rámečku
+
+Verze: `mapa.html` je vždy aktuální, `mapa_vNN.html` jsou uložené jednotlivé verze.
