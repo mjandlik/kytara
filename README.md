@@ -20,5 +20,6 @@ Verze: `index.html` je vždy aktuální, `kytara_vNN.html` jsou uložené jednot
 - celý krk 0–24, nultý pražec nahoře, krk uprostřed
 - tlačítka vlevo: tónina, boxy E D C A G (víc najednou), bluesové tóny zap/vyp, tóny všechny / jen v boxech
 - základní tóny s písmenem, písmeno boxu vpravo od krku v barvě rámečku
+- značky na hmatníku (3, 5, 7, 9, 12, 15, 17, 19, 21, 24) a čísla těchto pražců vlevo od krku
 
 Verze: `mapa.html` je vždy aktuální, `mapa_vNN.html` jsou uložené jednotlivé verze.
