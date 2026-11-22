@@ -21,5 +21,6 @@ Verze: `index.html` je vždy aktuální, `kytara_vNN.html` jsou uložené jednot
 - tlačítka vlevo: tónina, boxy E D C A G (víc najednou), bluesové tóny zap/vyp, tóny všechny / jen v boxech
 - základní tóny s písmenem, písmeno boxu vpravo od krku v barvě rámečku
 - značky na hmatníku (3, 5, 7, 9, 12, 15, 17, 19, 21, 24) a čísla těchto pražců vlevo od krku
+- tlačítko Akord (vyp / 1 b3 5 / názvy): tóny mollového akordu tóniny ve vybraných boxech v barvě boxu, tóny hmatu akordu (tvar Em, Dm, Cm, Am, Gm) s bílým obrysem
 
 Verze: `mapa.html` je vždy aktuální, `mapa_vNN.html` jsou uložené jednotlivé verze.

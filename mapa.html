@@ -9,9 +9,9 @@
   html, body { margin: 0; height: 100%; background: #161618; color: #F1EFE8; overflow: hidden;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
   #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  #panel { position: absolute; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 10px;
+  #panel { position: absolute; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px;
     padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) calc(8px + env(safe-area-inset-left)); z-index: 2; }
-  .btn { width: 80px; min-height: 58px; border-radius: 12px; border: 2px solid #888780; background: #2C2C2A; color: #F1EFE8;
+  .btn { width: 80px; min-height: 54px; border-radius: 12px; border: 2px solid #888780; background: #2C2C2A; color: #F1EFE8;
     font: inherit; font-size: 17px; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; line-height: 1.2; }
   .btn small { font-size: 14px; font-weight: 400; color: #B4B2A9; }
   .btn:active { transform: scale(0.97); }
@@ -28,20 +28,23 @@
 <div id="keys"><div id="keysGrid"></div></div>
 <script>
 'use strict';
-// Mapa pentatoniky – verze v02
-const VERSION = 'mapa_v02';
+// Mapa pentatoniky – verze v03
+const VERSION = 'mapa_v03';
 const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'B', 'H'];
 const OPENS = [40, 45, 50, 55, 59, 64];            // E A D G H e (MIDI)
 const FRETS = 24;
 const BOXES = [                                    // posun začátku boxu od základního tónu na struně E
-  { id: 'E', off: 0,  col: '#D85A30' },
-  { id: 'D', off: 3,  col: '#378ADD' },
-  { id: 'C', off: 5,  col: '#1D9E75' },
-  { id: 'A', off: 7,  col: '#7F77DD' },
-  { id: 'G', off: 10, col: '#D4537E' },
+  // grip = hmat mollového akordu (tvar Em, Dm, Cm, Am, Gm): pražec na strunách E A D G H e vůči začátku boxu, null = nehraje se
+  { id: 'E', off: 0,  col: '#D85A30', grip: [0, 2, 2, 0, 0, 0] },
+  { id: 'D', off: 3,  col: '#378ADD', grip: [null, null, -1, 1, 2, 0] },
+  { id: 'C', off: 5,  col: '#1D9E75', grip: [null, 2, 0, -1, 0, 2] },
+  { id: 'A', off: 7,  col: '#7F77DD', grip: [null, 0, 2, 2, 1, 0] },
+  { id: 'G', off: 10, col: '#D4537E', grip: [2, 0, -1, -1, 2, 2] },
 ];
+const CHORD_IV = { 0: '1', 3: 'b3', 7: '5' };       // tóny mollového akordu tóniny
+const CHORD_MODES = ['off', 'int', 'name'];
 
-const state = { key: 11, boxes: ['E'], blues: true, all: true };
+const state = { key: 11, boxes: ['E'], blues: true, all: true, chord: 'off' };
 try { Object.assign(state, JSON.parse(localStorage.getItem('mapa-state') || '{}')); } catch (e) {}
 function save() { try { localStorage.setItem('mapa-state', JSON.stringify(state)); } catch (e) {} }
 
@@ -65,7 +68,7 @@ function boxInstances(b) {
   const out = [];
   for (let s = base - 24; s <= FRETS; s += 12) {
     const f = boxFrets(s);
-    if (Math.min(...f.lo) >= 0 && Math.max(...f.hi) <= FRETS) out.push(f);
+    if (Math.min(...f.lo) >= 0 && Math.max(...f.hi) <= FRETS) { f.start = s; out.push(f); }
   }
   return out;
 }
@@ -87,6 +90,9 @@ const boxBtns = BOXES.map(b => {
 });
 const bluesBtn = mkBtn('', () => { state.blues = !state.blues; update(); });
 const allBtn = mkBtn('', () => { state.all = !state.all; update(); });
+const chordBtn = mkBtn('', () => {
+  state.chord = CHORD_MODES[(CHORD_MODES.indexOf(state.chord) + 1) % CHORD_MODES.length]; update();
+});
 
 const keysEl = document.getElementById('keys'), keysGrid = document.getElementById('keysGrid');
 KEYS.forEach((k, i) => {
@@ -110,6 +116,8 @@ function updateButtons() {
   });
   bluesBtn.innerHTML = 'Blues<small>' + (state.blues ? 'zap' : 'vyp') + '</small>';
   allBtn.innerHTML = 'Tóny<small>' + (state.all ? 'všechny' : 'v boxech') + '</small>';
+  chordBtn.innerHTML = 'Akord<small>' + ({ off: 'vyp', int: '1 b3 5', name: 'názvy' })[state.chord] + '</small>';
+  chordBtn.style.borderColor = state.chord === 'off' ? '#888780' : '#F1EFE8';
 }
 
 // ---------- kreslení krku ----------
@@ -158,6 +166,7 @@ function draw() {
   const sc = scaleSet(), bl = bluesPc();
   const shown = BOXES.filter(b => state.boxes.includes(b.id));
   const inBox = new Set();
+  const chordAt = new Map();                       // 'struna:pražec' -> { col, grip }
   const gBox = el('g', {});
   shown.forEach(b => {
     boxInstances(b).forEach(f => {
@@ -168,7 +177,17 @@ function draw() {
         fill: 'none', stroke: b.col, 'stroke-width': 3, 'stroke-linejoin': 'round' }, gBox);
       const ym = (ny(Math.min(...f.lo)) + ny(Math.max(...f.hi))) / 2;
       el('text', { x: x1 + 14, y: ym + 7, fill: b.col, 'font-size': 20, 'font-weight': 500 }, gBox, b.id);
-      for (let i = 0; i < 6; i++) for (let n = f.lo[i]; n <= f.hi[i]; n++) inBox.add(i + ':' + n);
+      for (let i = 0; i < 6; i++) for (let n = f.lo[i]; n <= f.hi[i]; n++) {
+        inBox.add(i + ':' + n);
+        const iv = ((OPENS[i] + n) % 12 - state.key + 12) % 12;
+        if (state.chord !== 'off' && iv in CHORD_IV) {
+          const g = b.grip[i] != null && f.start + b.grip[i] === n;
+          const c = chordAt.get(i + ':' + n) || { cols: [], grip: false };
+          if (!c.cols.includes(b.col)) c.cols.push(b.col);
+          c.grip = c.grip || g;
+          chordAt.set(i + ':' + n, c);
+        }
+      }
     });
   });
 
@@ -183,7 +202,19 @@ function draw() {
       const x = sx(i), y = ny(n);
       const room = n === 0 ? 26 : fy(n) - fy(n - 1);
       const r = Math.max(3.5, Math.min(7, room * 0.3, neckW / 22));
-      if (isBlues) {
+      const ch = chordAt.get(i + ':' + n);
+      if (ch) {
+        const iv = (pc - state.key + 12) % 12;
+        const label = state.chord === 'int' ? CHORD_IV[iv] : KEYS[pc];
+        const rr = Math.max(8.5, Math.min(12, room * 0.46));
+        if (ch.cols.length === 1) el('circle', { cx: x, cy: y, r: rr, fill: ch.cols[0] }, gN);
+        else {                                       // tón patří dvěma sousedním boxům: půlka v každé barvě
+          el('path', { d: `M${x},${y - rr} A${rr},${rr} 0 0 0 ${x},${y + rr} Z`, fill: ch.cols[0] }, gN);
+          el('path', { d: `M${x},${y - rr} A${rr},${rr} 0 0 1 ${x},${y + rr} Z`, fill: ch.cols[1] }, gN);
+        }
+        if (ch.grip) el('circle', { cx: x, cy: y, r: rr + 2.5, fill: 'none', stroke: '#ffffff', 'stroke-width': 2.5 }, gN);
+        el('text', { x, y: y + rr * 0.4, 'text-anchor': 'middle', fill: '#ffffff', 'font-size': Math.max(11, rr * (label.length > 1 ? 0.95 : 1.15)), 'font-weight': 600 }, gN, label);
+      } else if (isBlues) {
         const k = r * 0.9;
         el('path', { d: `M${x - k},${y - k} L${x + k},${y + k} M${x + k},${y - k} L${x - k},${y + k}`, stroke: '#F1EFE8', 'stroke-width': 2 }, gN);
       } else if (pc === state.key) {
