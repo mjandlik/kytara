@@ -9,11 +9,18 @@
   html, body { margin: 0; height: 100%; background: #161618; color: #F1EFE8; overflow: hidden;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
   #map { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-  #panel { position: absolute; left: 0; top: 0; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: 8px;
-    padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom) calc(8px + env(safe-area-inset-left)); z-index: 2; }
-  .btn { width: 80px; min-height: 54px; border-radius: 12px; border: 2px solid #888780; background: #2C2C2A; color: #F1EFE8;
-    font: inherit; font-size: 17px; font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4px; line-height: 1.2; }
-  .btn small { font-size: 14px; font-weight: 400; color: #B4B2A9; }
+  #side { position: absolute; left: 0; top: 0; bottom: 0; width: 200px; box-sizing: border-box; display: flex; flex-direction: column; gap: 12px;
+    padding: calc(12px + env(safe-area-inset-top)) 0 calc(12px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left)); z-index: 2; }
+  #panel { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: none; }
+  #panel .wide { grid-column: span 2; }
+  .btn { min-height: clamp(46px, 6.5vw, 64px); border-radius: 10px; border: 2px solid #888780; background: #2C2C2A; color: #F1EFE8;
+    font: inherit; font-size: clamp(15px, 2.4vw, 20px); font-weight: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3px; line-height: 1.15; }
+  .btn small { font-size: clamp(12px, 1.9vw, 16px); font-weight: 400; color: #B4B2A9; }
+  #theory { flex: 1; min-height: 0; overflow-y: auto; font-size: clamp(13px, 2.1vw, 18px); line-height: 1.45; color: #D3D1C7; display: none; }
+  #theory.open { display: block; }
+  #theory h3 { font-size: 1.15em; font-weight: 600; color: #F1EFE8; margin: 0 0 6px; }
+  #theory p { margin: 0 0 8px; }
+  #theory b { color: #F1EFE8; }
   .btn:active { transform: scale(0.97); }
   #keys { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 5; }
   #keys.open { display: flex; }
@@ -24,12 +31,12 @@
 </head>
 <body>
 <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
-<div id="panel"></div>
+<div id="side"><div id="panel"></div><div id="theory"></div></div>
 <div id="keys"><div id="keysGrid"></div></div>
 <script>
 'use strict';
-// Mapa pentatoniky – verze v04
-const VERSION = 'mapa_v04';
+// Mapa pentatoniky – verze v05
+const VERSION = 'mapa_v05';
 const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'B', 'H'];
 const OPENS = [40, 45, 50, 55, 59, 64];            // E A D G H e (MIDI)
 const FRETS = 24;
@@ -79,7 +86,7 @@ function mkBtn(html, onClick) {
   const b = document.createElement('button'); b.className = 'btn'; b.innerHTML = html;
   b.addEventListener('click', onClick); panel.appendChild(b); return b;
 }
-const keyBtn = mkBtn('', () => openKeys());
+const keyBtn = mkBtn('', () => openKeys()); keyBtn.classList.add('wide');
 const boxBtns = BOXES.map(b => {
   const el = mkBtn('Box ' + b.id, () => {
     const i = state.boxes.indexOf(b.id);
@@ -118,6 +125,26 @@ function updateButtons() {
   allBtn.innerHTML = 'Tóny<small>' + (state.all ? 'všechny' : 'v boxech') + '</small>';
   chordBtn.innerHTML = 'Akord<small>' + ({ off: 'vyp', int: '1 b3 5', name: 'názvy' })[state.chord] + '</small>';
   chordBtn.style.borderColor = state.chord === 'off' ? '#888780' : '#F1EFE8';
+  updateTheory();
+}
+
+// ---------- teorie (ukazuje se při zobrazení intervalů) ----------
+const theory = document.getElementById('theory');
+function updateTheory() {
+  theory.classList.toggle('open', state.chord === 'int');
+  if (state.chord !== 'int') return;
+  const n = i => '<b>' + KEYS[(state.key + i) % 12] + '</b>';
+  theory.innerHTML = `
+    <h3>Co znamenají čísla</h3>
+    <p><b>Půltón</b> = posun o 1 pražec. Interval říká, o kolik půltónů je tón výš než základní tón.</p>
+    <p><b>1 – základní tón</b> (${n(0)}). Podle něj se jmenuje tónina i akord.</p>
+    <p><b>b3 – malá tercie</b> (${n(3)}), 3 půltóny nad 1. Tercie = třetí tón stupnice, „b“ = snížená. Malá tercie dělá akord <b>mollový</b> (smutný zvuk).
+      Velká tercie (3) má 4 půltóny a dělá akord <b>durový</b> (veselý).</p>
+    <p><b>5 – kvinta</b> (${n(7)}), 7 půltónů nad 1. Kvinta = pátý tón stupnice. Je stejná v mollu i v duru a dává akordu pevnost. Samotné 1 + 5 je „power chord“.</p>
+    <p><b>Akord ${KEYS[state.key]}m = 1 + b3 + 5</b> (${n(0)}, ${n(3)}, ${n(7)}). Durový akord = 1 + 3 + 5.</p>
+    <p><b>Šedé tečky bez kroužku</b> jsou zbylé tóny pentatoniky: <b>4</b> – kvarta (${n(5)}, 5 půltónů) a <b>b7</b> – malá septima (${n(10)}, 10 půltónů). Křížek je bluesový tón <b>b5</b> (${n(6)}, 6 půltónů).</p>
+    <p><b>Na krku:</b> b3 je na stejné struně o 3 pražce výš než 1. Kvinta je na sousední tenčí struně o 2 pražce výš (u přechodu ze struny G na H o 3).</p>
+    <p><b>Kroužek plný</b> = tón z hmatu akordu daného tvaru, <b>čárkovaný</b> = další tón akordu v boxu.</p>`;
 }
 
 // ---------- kreslení krku ----------
@@ -134,17 +161,16 @@ function draw() {
   const W = window.innerWidth, H = window.innerHeight;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.innerHTML = '';
-  const panelRight = panel.getBoundingClientRect().right;
 
   const padTop = 30, padBot = 14;
   const top = padTop, L = (H - padTop - padBot) / 0.75;      // skutečné rozestupy pražců
   const fy = n => top + L * (1 - Math.pow(2, -n / 12));
   const ny = n => n === 0 ? top - 13 : (fy(n - 1) + fy(n)) / 2;
 
-  let neckW = Math.min(W * 0.32, 260);
-  let cx = W / 2;
-  if (cx - neckW / 2 < panelRight + 34) cx = panelRight + 34 + neckW / 2;   // nesmí zajet pod tlačítka
-  const x0 = cx - neckW / 2, x1 = cx + neckW / 2;
+  // krk vpravo (vedle něj písmena boxů), vlevo tlačítka a teorie
+  const neckW = Math.min(W * 0.32, 260);
+  const x1 = W - 40, x0 = x1 - neckW, cx = (x0 + x1) / 2;
+  document.getElementById('side').style.width = Math.max(150, x0 - 36) + 'px';
   const inset = neckW * 0.09;
   const sx = i => x0 + inset + i * (neckW - 2 * inset) / 5;
 

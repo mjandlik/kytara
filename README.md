@@ -18,7 +18,8 @@ Verze: `index.html` je vždy aktuální, `kytara_vNN.html` jsou uložené jednot
 
 - jen zobrazení, bez zvuku; telefon nebo tablet na výšku
 - celý krk 0–24, nultý pražec nahoře, krk uprostřed
-- tlačítka vlevo: tónina, boxy E D C A G (víc najednou), bluesové tóny zap/vyp, tóny všechny / jen v boxech
+- krk vpravo; vlevo nahoře tlačítka ve dvou sloupcích: tónina, boxy E D C A G (víc najednou), bluesové tóny zap/vyp, tóny všechny / jen v boxech, akord
+- pod tlačítky teorie o intervalech (zobrazí se v režimu Akord 1 b3 5)
 - základní tóny s písmenem, písmeno boxu vpravo od krku v barvě rámečku
 - značky na hmatníku (3, 5, 7, 9, 12, 15, 17, 19, 21, 24) a čísla těchto pražců vlevo od krku
 - tlačítko Akord (vyp / 1 b3 5 / názvy): tóny mollového akordu tóniny ve vybraných boxech jako kroužek v barvě boxu s popiskem vpravo nahoře; plný kroužek = hmat akordu (tvar Em, Dm, Cm, Am, Gm), čárkovaný = jiný tón akordu v boxu
