@@ -25,3 +25,16 @@ Verze: `index.html` je vždy aktuální, `kytara_vNN.html` jsou uložené jednot
 - tlačítko Akord (vyp / 1 b3 5 / názvy): tóny mollového akordu tóniny ve vybraných boxech jako kroužek v barvě boxu s popiskem vpravo nahoře; plný kroužek = hmat akordu (tvar Em, Dm, Cm, Am, Gm), čárkovaný = jiný tón akordu v boxu
 
 Verze: `mapa.html` je vždy aktuální, `mapa_vNN.html` jsou uložené jednotlivé verze.
+
+## Kvíz na boxy
+
+**Spuštění:** https://mjandlik.github.io/kytara/kviz.html
+
+- kartičky na zkoušení boxů mollové pentatoniky (6 strun, bez bluesových tónů), tvary E D C A G
+- box přes celou obrazovku: jen pražce daného boxu, stejně široké, bez čísel pražců a bez tóniny; tečky na všech tónech boxu ve stejné barvě
+- telefon na výšku (hlava nahoře, struna E vlevo) i tablet na šířku (hlava vpravo, struna E nahoře)
+- odpověď: ťuknout na tečky se základními tóny (reaguje tečka a úzký lem kolem ní) a vybrat tvar; Zkontrolovat ukáže správné řešení, tvar a základní tóny se hodnotí zvlášť
+- kolo má 10 kartiček, v každém kole všech pět tvarů; tvary s chybami se vracejí častěji; pokrok se ukládá v zařízení
+- bez zvuku
+
+Verze: `kviz.html` je vždy aktuální, `kviz_vNN.html` jsou uložené jednotlivé verze.
