@@ -19,7 +19,6 @@
 
   #head { flex: none; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 6px; }
   #prog { flex: 1; text-align: center; font-size: 16px; font-weight: 600; color: var(--strong); white-space: nowrap; }
-  #prog small { font-size: 14px; font-weight: 400; color: var(--mute); margin-left: 8px; }
   .ic { width: 44px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
     display: flex; align-items: center; justify-content: center; padding: 0; }
   .ic svg { width: 22px; height: 22px; }
@@ -41,6 +40,11 @@
   #go, .big { height: var(--bh); border-radius: 12px; border: 2px solid #d6d6d9; background: #d6d6d9; color: #161618;
     font-size: clamp(17px, 3vmin, 22px); font-weight: 700; padding: 0 16px; }
   #go:disabled { background: var(--panel); border-color: var(--line); color: #6a6a70; }
+  #acts { display: flex; gap: 8px; }
+  #go { flex: 1.4; min-width: 0; }
+  #rev { flex: 1; min-width: 0; height: var(--bh); border-radius: 12px; border: 2px solid var(--line); background: var(--panel); color: var(--text);
+    font-size: clamp(14px, 2.5vmin, 19px); font-weight: 600; line-height: 1.15; padding: 0 8px; }
+  #rev[hidden] { display: none; }
   button:active:not(:disabled) { transform: scale(0.97); }
 
   @media (orientation: landscape) {
@@ -48,13 +52,15 @@
     #shapes { order: 1; flex: none; }
     #shapes button { flex: none; width: clamp(52px, 8vw, 96px); }
     #msg { order: 2; flex: 1; min-width: 0; }
-    #go { order: 3; flex: 0 0 clamp(150px, 22vw, 280px); }
+    #acts { order: 3; flex: 0 0 clamp(270px, 36vw, 460px); }
   }
   @media (orientation: landscape) and (max-height: 480px) {
     :root { --bh: 46px; }
     #head { height: 38px; }
     .ic { height: 34px; }
-    #bar { padding: 4px 8px 6px; }
+    #bar { padding: 4px 8px 6px; gap: 8px; }
+    #shapes { gap: 6px; }
+    #shapes button { width: 48px; }
   }
 
   .scr { position: fixed; inset: 0; background: var(--bg); z-index: 5; display: none; overflow-y: auto; }
@@ -90,7 +96,10 @@
   <div id="bar">
     <div id="msg" aria-live="polite"></div>
     <div id="shapes"></div>
-    <button id="go" type="button"></button>
+    <div id="acts">
+      <button id="rev" type="button">Ukázat odpověď</button>
+      <button id="go" type="button"></button>
+    </div>
   </div>
 </div>
 
@@ -98,7 +107,8 @@
   <div class="box">
     <h1>Kvíz na boxy</h1>
     <p>Mollová pentatonika, 6 strun, tvary <b>E D C A G</b>.</p>
-    <p>U každé kartičky ťukni na tečky, které jsou <b>základní tóny</b>, a vyber <b>tvar boxu</b>. Pak dej Zkontrolovat.</p>
+    <p>U každé kartičky ťukni na tečky, které jsou <b>základní tóny</b>, a vyber <b>tvar boxu</b>. Pak dej Zkontrolovat. Když nevíš, dej Ukázat odpověď, počítá se to jako chyba.</p>
+    <p>Kartičky jdou náhodně a tvary, které neumíš, se vracejí častěji. Tlačítka s písmeny se u každé kartičky zamíchají.</p>
     <p>Na výšku je hlava kytary nahoře a tlustá struna E vlevo. Na šířku je hlava vpravo a tlustá struna E nahoře.</p>
     <div id="stats" class="tbl"></div>
     <button id="bStart" class="big" type="button">Start (10 kartiček)</button>
@@ -127,8 +137,8 @@
 
 <script>
 'use strict';
-// Kvíz na boxy – verze v01
-const VERSION = 'kviz_v01';
+// Kvíz na boxy – verze v02
+const VERSION = 'kviz_v02';
 const LS = 'kviz-boxy';
 const OPENS = [40, 45, 50, 55, 59, 64];              // E A D G H e (MIDI)
 const NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
@@ -173,9 +183,9 @@ function save() { try { localStorage.setItem(LS, JSON.stringify(store)); } catch
 
 // ---------- stav ----------
 const $ = id => document.getElementById(id);
-const stage = $('stage'), board = $('board'), msg = $('msg'), go = $('go'), prog = $('prog'), shapesEl = $('shapes');
+const stage = $('stage'), board = $('board'), msg = $('msg'), go = $('go'), rev = $('rev'), prog = $('prog'), shapesEl = $('shapes');
 let round = null;   // { done, full, shape, roots, seen:Set, last, per:{id:{n,full}} }
-let card = null;    // { id, box, sel:Set, pick, checked, okShape, okRoots }
+let card = null;    // { id, box, order, sel:Set, pick, checked, revealed, okShape, okRoots }
 let geo = null;     // poloha teček na obrazovce pro dotyk
 
 const shapeBtns = SHAPES.map(s => {
@@ -198,6 +208,16 @@ function pickShape() {
   return pool[pool.length - 1].id;
 }
 
+// Náhodné pořadí tlačítek s písmeny – nikdy ne E D C A G, aby pořadí nenapovídalo.
+function shuffledIds() {
+  const base = SHAPES.map(s => s.id);
+  for (;;) {
+    const a = base.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    if (a.join('') !== base.join('')) return a;
+  }
+}
+
 function startRound() {
   round = { done: 0, full: 0, shape: 0, roots: 0, seen: new Set(), last: null, per: {} };
   $('menu').classList.remove('open'); $('end').classList.remove('open');
@@ -206,14 +226,17 @@ function startRound() {
 function nextCard() {
   const id = pickShape();
   round.seen.add(id); round.last = id;
-  card = { id, box: BOXES[id], sel: new Set(), pick: null, checked: false, okShape: false, okRoots: false };
+  card = { id, box: BOXES[id], order: shuffledIds(), sel: new Set(), pick: null, checked: false, revealed: false, okShape: false, okRoots: false };
+  card.order.forEach(k => shapesEl.appendChild(shapeBtns.find(b => b.id === k).el));
   refresh();
 }
-function check() {
+// reveal = true: jen ukázat správnou odpověď bez odpovídání; počítá se jako chyba.
+function check(reveal) {
   const b = card.box;
   const roots = new Set(); b.dots.forEach((d, i) => { if (d.root) roots.add(i); });
-  card.okShape = card.pick === card.id;
-  card.okRoots = roots.size === card.sel.size && [...roots].every(i => card.sel.has(i));
+  if (reveal) { card.revealed = true; card.pick = null; card.sel.clear(); }
+  card.okShape = !reveal && card.pick === card.id;
+  card.okRoots = !reveal && roots.size === card.sel.size && [...roots].every(i => card.sel.has(i));
   card.checked = true;
   const full = card.okShape && card.okRoots;
   round.done++; round.full += full ? 1 : 0; round.shape += card.okShape ? 1 : 0; round.roots += card.okRoots ? 1 : 0;
@@ -227,9 +250,11 @@ function check() {
 
 go.addEventListener('click', () => {
   if (!card) return;
-  if (!card.checked) { if (card.pick && card.sel.size) check(); return; }
+  if (!card.checked) { if (card.pick && card.sel.size) check(false); return; }
   if (round.done >= ROUND) showEnd(); else nextCard();
 });
+
+rev.addEventListener('click', () => { if (card && !card.checked) check(true); });
 
 // ---------- kreslení ----------
 const P = v => (Math.round(v * 10) / 10).toString();
@@ -298,6 +323,8 @@ function draw() {
     if (!card.checked) {
       if (sel) o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#a06ee0" stroke="#ffffff" stroke-width="${P(Math.max(3, r * 0.14))}"/><circle cx="${P(x)}" cy="${P(y)}" r="${P(r * 0.3)}" fill="#ffffff"/>`);
       else o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#8e8e93" stroke="#a06ee0" stroke-width="${P(Math.max(2, r * 0.09))}"/>`);
+    } else if (d.root && card.revealed) {              // ukázaná odpověď: základní tón
+      o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#46b477" stroke="#ffffff" stroke-width="${P(Math.max(3, r * 0.14))}"/><circle cx="${P(x)}" cy="${P(y)}" r="${P(r * 0.3)}" fill="#ffffff"/>`);
     } else if (d.root && sel) {                        // správně označený základní tón
       o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#46b477" stroke="#ffffff" stroke-width="${P(Math.max(3, r * 0.14))}"/>` + tick('#ffffff'));
     } else if (d.root) {                               // základní tón, který zůstal neoznačený
@@ -315,8 +342,7 @@ function draw() {
 
 function refresh() {
   if (!card) return;
-  const n = round.done + (card.checked ? 0 : 1);
-  prog.innerHTML = `Kartička ${n} / ${ROUND}<small>správně ${round.full}</small>`;
+  prog.textContent = 'Správně ' + round.full;         // bez pořadí kartičky
   shapeBtns.forEach(({ id, el }) => {
     el.className = '';
     if (!card.checked) { if (card.pick === id) el.classList.add('sel'); }
@@ -327,12 +353,15 @@ function refresh() {
     el.setAttribute('aria-pressed', card.pick === id);
   });
   if (!card.checked) {
+    rev.hidden = false;
     go.textContent = 'Zkontrolovat';
     go.disabled = !(card.pick && card.sel.size);
     msg.textContent = card.pick && card.sel.size ? '' : card.sel.size ? 'Vyber tvar boxu' : card.pick ? 'Označ základní tóny' : 'Označ základní tóny a vyber tvar';
   } else {
+    rev.hidden = true;
     go.textContent = round.done >= ROUND ? 'Výsledek' : 'Další';
     go.disabled = false;
+    if (card.revealed) { msg.innerHTML = `Správná odpověď: tvar <span class="ok">${card.id}</span>`; draw(); return; }
     const a = card.okShape ? '<span class="ok">Tvar ✓</span>' : `<span class="bad">Tvar ✗ (je to ${card.id})</span>`;
     const c = card.okRoots ? '<span class="ok">Základní tóny ✓</span>' : '<span class="bad">Základní tóny ✗</span>';
     msg.innerHTML = a + ' · ' + c;

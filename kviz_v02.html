@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#161618">
+<title>Kvíz na boxy</title>
+<link rel="icon" href="icon-192.png">
+<style>
+  :root { --bg: #161618; --panel: #26262a; --line: #38383f; --text: #d8d8dc; --strong: #ececee; --mute: #8b8b90;
+    --purple: #a06ee0; --ok: #46b477; --bad: #e0574f; --bh: clamp(48px, 9vmin, 72px); }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden; overscroll-behavior: none;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation;
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+  #app { position: fixed; inset: 0; display: flex; flex-direction: column; box-sizing: border-box;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+  #head { flex: none; height: 44px; display: flex; align-items: center; gap: 8px; padding: 0 6px; }
+  #prog { flex: 1; text-align: center; font-size: 16px; font-weight: 600; color: var(--strong); white-space: nowrap; }
+  .ic { width: 44px; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
+    display: flex; align-items: center; justify-content: center; padding: 0; }
+  .ic svg { width: 22px; height: 22px; }
+
+  #stage { flex: 1; min-height: 0; position: relative; }
+  #board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  #bar { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 6px 8px 10px; }
+  #msg { min-height: 1.4em; line-height: 1.4; text-align: center; font-size: clamp(14px, 2.3vmin, 19px); color: var(--mute); }
+  #msg .ok { color: var(--ok); font-weight: 600; }
+  #msg .bad { color: var(--bad); font-weight: 600; }
+  #shapes { display: flex; gap: 8px; }
+  #shapes button { flex: 1; min-width: 0; height: var(--bh); border-radius: 12px; border: 2px solid var(--line); background: var(--panel);
+    font-size: clamp(22px, 4.4vmin, 32px); font-weight: 700; color: var(--strong); padding: 0; }
+  #shapes button.sel { background: var(--purple); border-color: #ffffff; color: #ffffff; }
+  #shapes button.ok { background: var(--ok); border-color: var(--ok); color: #10241a; }
+  #shapes button.bad { background: var(--bad); border-color: var(--bad); color: #ffffff; }
+  #shapes button.dim { opacity: 0.4; }
+  #go, .big { height: var(--bh); border-radius: 12px; border: 2px solid #d6d6d9; background: #d6d6d9; color: #161618;
+    font-size: clamp(17px, 3vmin, 22px); font-weight: 700; padding: 0 16px; }
+  #go:disabled { background: var(--panel); border-color: var(--line); color: #6a6a70; }
+  #acts { display: flex; gap: 8px; }
+  #go { flex: 1.4; min-width: 0; }
+  #rev { flex: 1; min-width: 0; height: var(--bh); border-radius: 12px; border: 2px solid var(--line); background: var(--panel); color: var(--text);
+    font-size: clamp(14px, 2.5vmin, 19px); font-weight: 600; line-height: 1.15; padding: 0 8px; }
+  #rev[hidden] { display: none; }
+  button:active:not(:disabled) { transform: scale(0.97); }
+
+  @media (orientation: landscape) {
+    #bar { flex-direction: row; align-items: center; gap: 12px; }
+    #shapes { order: 1; flex: none; }
+    #shapes button { flex: none; width: clamp(52px, 8vw, 96px); }
+    #msg { order: 2; flex: 1; min-width: 0; }
+    #acts { order: 3; flex: 0 0 clamp(270px, 36vw, 460px); }
+  }
+  @media (orientation: landscape) and (max-height: 480px) {
+    :root { --bh: 46px; }
+    #head { height: 38px; }
+    .ic { height: 34px; }
+    #bar { padding: 4px 8px 6px; gap: 8px; }
+    #shapes { gap: 6px; }
+    #shapes button { width: 48px; }
+  }
+
+  .scr { position: fixed; inset: 0; background: var(--bg); z-index: 5; display: none; overflow-y: auto; }
+  .scr.open { display: flex; }
+  .scr .box { margin: auto; width: 100%; max-width: 520px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;
+    padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); }
+  .scr h1 { margin: 0; font-size: 30px; font-weight: 700; color: var(--strong); }
+  .scr p { margin: 0; font-size: 16px; line-height: 1.5; color: #a9a9af; }
+  .scr p b { color: var(--strong); font-weight: 600; }
+  .tbl { display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .tbl div { background: #1d1d20; padding: 9px 10px; font-size: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+  .tbl .h { font-size: 13px; color: var(--mute); }
+  .tbl .k { font-weight: 700; color: var(--strong); min-width: 28px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .ghost { height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 15px; color: var(--text);
+    display: flex; align-items: center; justify-content: center; text-decoration: none; padding: 0 10px; }
+  .score { font-size: 64px; font-weight: 700; color: var(--strong); line-height: 1; }
+  .score small { display: block; font-size: 16px; font-weight: 400; color: var(--mute); margin-top: 8px; }
+  .ver { font-size: 12px; color: #5c5c62; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="head">
+    <button id="bMenu" class="ic" type="button" aria-label="Menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7 H20 M4 12 H20 M4 17 H20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+    </button>
+    <div id="prog"></div>
+    <button id="bFs" class="ic" type="button" aria-label="Celá obrazovka"></button>
+  </div>
+  <div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg></div>
+  <div id="bar">
+    <div id="msg" aria-live="polite"></div>
+    <div id="shapes"></div>
+    <div id="acts">
+      <button id="rev" type="button">Ukázat odpověď</button>
+      <button id="go" type="button"></button>
+    </div>
+  </div>
+</div>
+
+<div id="menu" class="scr open">
+  <div class="box">
+    <h1>Kvíz na boxy</h1>
+    <p>Mollová pentatonika, 6 strun, tvary <b>E D C A G</b>.</p>
+    <p>U každé kartičky ťukni na tečky, které jsou <b>základní tóny</b>, a vyber <b>tvar boxu</b>. Pak dej Zkontrolovat. Když nevíš, dej Ukázat odpověď, počítá se to jako chyba.</p>
+    <p>Kartičky jdou náhodně a tvary, které neumíš, se vracejí častěji. Tlačítka s písmeny se u každé kartičky zamíchají.</p>
+    <p>Na výšku je hlava kytary nahoře a tlustá struna E vlevo. Na šířku je hlava vpravo a tlustá struna E nahoře.</p>
+    <div id="stats" class="tbl"></div>
+    <button id="bStart" class="big" type="button">Start (10 kartiček)</button>
+    <div class="row">
+      <a class="ghost" href="mapa.html">Mapa</a>
+      <a class="ghost" href="index.html">Trenažér</a>
+      <button id="bReset" class="ghost" type="button">Vymazat pokrok</button>
+    </div>
+    <div class="ver" id="ver"></div>
+  </div>
+</div>
+
+<div id="end" class="scr">
+  <div class="box">
+    <h1>Výsledek</h1>
+    <div class="score" id="endScore"></div>
+    <p id="endLines"></p>
+    <div id="endTbl" class="tbl"></div>
+    <p id="endWeak"></p>
+    <div class="row">
+      <button id="bAgain" class="big" type="button">Další kolo</button>
+      <button id="bToMenu" class="ghost" type="button" style="height:var(--bh)">Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// Kvíz na boxy – verze v02
+const VERSION = 'kviz_v02';
+const LS = 'kviz-boxy';
+const OPENS = [40, 45, 50, 55, 59, 64];              // E A D G H e (MIDI)
+const NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
+const GAUGE = [1.17, 0.91, 0.66, 0.43, 0.33, 0.25];  // tloušťky strun v mm
+const PENTA = [0, 3, 5, 7, 10];                      // mollová pentatonika
+// Tvary a jejich posun od základního tónu na struně E – stejné přiřazení jako v mapě a v trenažéru.
+const SHAPES = [{ id: 'E', off: 0 }, { id: 'D', off: 3 }, { id: 'C', off: 5 }, { id: 'A', off: 7 }, { id: 'G', off: 10 }];
+const ROUND = 10;
+const WEIGHT = [8, 5, 3, 2, 1];                      // čím líp tvar umíš (úroveň 0–4), tím míň se vrací
+const HIT_PAD = 10;                                  // lem kolem tečky, který ještě reaguje na dotyk (asi 2 mm)
+
+// Tóny boxu: na každé struně dva sousední tóny stupnice, navazující na předchozí strunu (stejně jako v mapě).
+function buildBox(off) {
+  const ROOT = 12, key = (OPENS[0] + ROOT) % 12;
+  const iv = p => ((p - key) % 12 + 12) % 12;
+  const next = p => { p++; while (!PENTA.includes(iv(p))) p++; return p; };
+  let p = OPENS[0] + ROOT + off; const dots = [];
+  OPENS.forEach((o, s) => {
+    if (s > 0) p = next(p);
+    const l = p, u = next(l);
+    dots.push({ s, f: l - o, root: iv(l) === 0 }, { s, f: u - o, root: iv(u) === 0 });
+    p = u;
+  });
+  const lo = Math.min(...dots.map(d => d.f)), hi = Math.max(...dots.map(d => d.f));
+  dots.forEach(d => { d.c = d.f - lo; });            // c = pořadí pražce ve výřezu, 0 je nejblíž hlavě
+  return { n: hi - lo + 1, dots };
+}
+const BOXES = {};
+SHAPES.forEach(s => { BOXES[s.id] = buildBox(s.off); });
+
+// ---------- uložený pokrok ----------
+const blank = () => { const o = { lv: {}, st: {} }; SHAPES.forEach(s => { o.lv[s.id] = 0; o.st[s.id] = { n: 0, shape: 0, roots: 0, full: 0 }; }); return o; };
+let store = blank();
+try {
+  const o = JSON.parse(localStorage.getItem(LS) || 'null');
+  if (o && o.lv && o.st) SHAPES.forEach(s => {
+    if (Number.isInteger(o.lv[s.id])) store.lv[s.id] = Math.max(0, Math.min(4, o.lv[s.id]));
+    if (o.st[s.id]) Object.assign(store.st[s.id], o.st[s.id]);
+  });
+} catch (e) { /* nic */ }
+function save() { try { localStorage.setItem(LS, JSON.stringify(store)); } catch (e) { /* nic */ } }
+
+// ---------- stav ----------
+const $ = id => document.getElementById(id);
+const stage = $('stage'), board = $('board'), msg = $('msg'), go = $('go'), rev = $('rev'), prog = $('prog'), shapesEl = $('shapes');
+let round = null;   // { done, full, shape, roots, seen:Set, last, per:{id:{n,full}} }
+let card = null;    // { id, box, order, sel:Set, pick, checked, revealed, okShape, okRoots }
+let geo = null;     // poloha teček na obrazovce pro dotyk
+
+const shapeBtns = SHAPES.map(s => {
+  const b = document.createElement('button'); b.type = 'button'; b.textContent = s.id;
+  b.addEventListener('click', () => { if (!card || card.checked) return; card.pick = card.pick === s.id ? null : s.id; refresh(); });
+  shapesEl.appendChild(b); return { id: s.id, el: b };
+});
+
+function pickShape() {
+  const left = ROUND - round.done;
+  const unseen = SHAPES.filter(s => !round.seen.has(s.id));
+  let pool = SHAPES.filter(s => s.id !== round.last);
+  if (unseen.length && left <= unseen.length) {      // v každém kole se objeví všech pět tvarů
+    const u = unseen.filter(s => s.id !== round.last);
+    pool = u.length ? u : unseen;
+  }
+  const w = pool.map(s => WEIGHT[store.lv[s.id]] * (round.seen.has(s.id) ? 1 : 1.5));
+  let r = Math.random() * w.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < pool.length; i++) { r -= w[i]; if (r <= 0) return pool[i].id; }
+  return pool[pool.length - 1].id;
+}
+
+// Náhodné pořadí tlačítek s písmeny – nikdy ne E D C A G, aby pořadí nenapovídalo.
+function shuffledIds() {
+  const base = SHAPES.map(s => s.id);
+  for (;;) {
+    const a = base.slice();
+    for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+    if (a.join('') !== base.join('')) return a;
+  }
+}
+
+function startRound() {
+  round = { done: 0, full: 0, shape: 0, roots: 0, seen: new Set(), last: null, per: {} };
+  $('menu').classList.remove('open'); $('end').classList.remove('open');
+  nextCard();
+}
+function nextCard() {
+  const id = pickShape();
+  round.seen.add(id); round.last = id;
+  card = { id, box: BOXES[id], order: shuffledIds(), sel: new Set(), pick: null, checked: false, revealed: false, okShape: false, okRoots: false };
+  card.order.forEach(k => shapesEl.appendChild(shapeBtns.find(b => b.id === k).el));
+  refresh();
+}
+// reveal = true: jen ukázat správnou odpověď bez odpovídání; počítá se jako chyba.
+function check(reveal) {
+  const b = card.box;
+  const roots = new Set(); b.dots.forEach((d, i) => { if (d.root) roots.add(i); });
+  if (reveal) { card.revealed = true; card.pick = null; card.sel.clear(); }
+  card.okShape = !reveal && card.pick === card.id;
+  card.okRoots = !reveal && roots.size === card.sel.size && [...roots].every(i => card.sel.has(i));
+  card.checked = true;
+  const full = card.okShape && card.okRoots;
+  round.done++; round.full += full ? 1 : 0; round.shape += card.okShape ? 1 : 0; round.roots += card.okRoots ? 1 : 0;
+  const per = round.per[card.id] || (round.per[card.id] = { n: 0, full: 0 });
+  per.n++; per.full += full ? 1 : 0;
+  const st = store.st[card.id];
+  st.n++; st.shape += card.okShape ? 1 : 0; st.roots += card.okRoots ? 1 : 0; st.full += full ? 1 : 0;
+  store.lv[card.id] = full ? Math.min(4, store.lv[card.id] + 1) : 0;
+  save(); refresh();
+}
+
+go.addEventListener('click', () => {
+  if (!card) return;
+  if (!card.checked) { if (card.pick && card.sel.size) check(false); return; }
+  if (round.done >= ROUND) showEnd(); else nextCard();
+});
+
+rev.addEventListener('click', () => { if (card && !card.checked) check(true); });
+
+// ---------- kreslení ----------
+const P = v => (Math.round(v * 10) / 10).toString();
+
+function draw() {
+  if (!card) return;
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  const b = card.box, port = h >= w;
+  const A = port ? h : w, C = port ? w : h;          // A = délka podél krku, C = šířka přes struny
+  const LBL = Math.max(24, Math.min(44, C * 0.06));  // proužek s názvy strun na straně hlavy
+  const PAD = Math.max(4, C * 0.012);
+  const neckW = C - 2 * PAD, sp = neckW / 6;
+  const a0 = LBL + 4, SL = 0.22;                     // SL = kousek hmatníku před prvním a za posledním pražcem
+  const cell = (A - a0) / (b.n + 2 * SL);
+  const cS = i => PAD + sp * (i + 0.5);
+  const aW = k => a0 + (SL + k) * cell;
+  const aD = c => a0 + (SL + c + 0.5) * cell;
+  // na výšku: hlava nahoře, struna E vlevo; na šířku: hlava vpravo, struna E nahoře (stejný pohled, jen otočený)
+  const X = (a, c) => port ? c : w - a;
+  const Y = (a, c) => port ? a : c;
+  const rect = (a1, a2, c1, c2, attrs) => `<rect x="${P(port ? c1 : w - a2)}" y="${P(port ? a1 : c1)}" width="${P(port ? c2 - c1 : a2 - a1)}" height="${P(port ? a2 - a1 : c2 - c1)}" ${attrs}/>`;
+  const line = (a1, c1, a2, c2, attrs) => `<line x1="${P(X(a1, c1))}" y1="${P(Y(a1, c1))}" x2="${P(X(a2, c2))}" y2="${P(Y(a2, c2))}" ${attrs}/>`;
+  const o = [];
+  o.push(`<defs><linearGradient id="fg" x1="0" y1="0" x2="${port ? 0 : 1}" y2="${port ? 1 : 0}"><stop offset="0" stop-color="#55595e"/><stop offset=".4" stop-color="#b4b8bd"/><stop offset=".65" stop-color="#eef0f2"/><stop offset="1" stop-color="#5d6166"/></linearGradient></defs>`);
+
+  // hmatník (eben), kresba dřeva, krémové lemování
+  o.push(rect(a0, A + 2, PAD, PAD + neckW, 'fill="#1e1915"'));
+  for (let k = 0; k < 16; k++) {
+    const c = PAD + neckW * (0.04 + 0.92 * ((k * 37 + 11) % 100) / 100);
+    o.push(line(a0, c, A + 2, c + ((k * 13) % 7 - 3), `stroke="#2c241e" stroke-width="${(0.6 + (k * 37 % 10) / 8).toFixed(2)}" opacity="0.7"`));
+  }
+  o.push(line(a0, PAD, A + 2, PAD, 'stroke="#e3d8bd" stroke-width="2.5"'));
+  o.push(line(a0, PAD + neckW, A + 2, PAD + neckW, 'stroke="#e3d8bd" stroke-width="2.5"'));
+
+  // pražce
+  const fw = Math.max(4, Math.min(9, cell * 0.04));
+  for (let k = 0; k <= b.n; k++) o.push(rect(aW(k) - fw / 2, aW(k) + fw / 2, PAD + 1.5, PAD + neckW - 1.5, 'rx="1.5" fill="url(#fg)"'));
+
+  // názvy strun na straně hlavy
+  const fs = LBL * 0.56;
+  for (let i = 0; i < 6; i++) {
+    const half = Math.min(sp * 0.36, LBL * 0.62);
+    o.push(rect(2, LBL - 2, cS(i) - half, cS(i) + half, `rx="${P(LBL * 0.24)}" fill="#26262a" stroke="#38383f"`));
+    o.push(`<text x="${P(X(LBL / 2, cS(i)))}" y="${P(Y(LBL / 2, cS(i)))}" font-size="${P(fs)}" font-weight="700" fill="#f0efe9" text-anchor="middle" dominant-baseline="central">${NAMES[i]}</text>`);
+  }
+
+  // struny (E A D opředené, G H e hladké)
+  for (let i = 0; i < 6; i++) {
+    const g = Math.max(1.4, GAUGE[i] * sp / 9), c = cS(i);
+    o.push(line(a0, c + g * 0.5, A + 2, c + g * 0.5, `stroke="#000" stroke-width="${P(g)}" opacity="0.45"`));
+    if (i < 3) {
+      o.push(line(a0, c, A + 2, c, `stroke="#b9b3a6" stroke-width="${P(g)}"`));
+      o.push(line(a0, c, A + 2, c, `stroke="#6f6a61" stroke-width="${P(g * 0.9)}" stroke-dasharray="${P(g * 0.22)} ${P(g * 0.3)}"`));
+    } else o.push(line(a0, c, A + 2, c, `stroke="#dfe2e5" stroke-width="${P(g)}"`));
+  }
+
+  // tečky: všechny tóny pentatoniky v boxu, stejné barvy
+  const r = Math.min(sp * 0.41, cell * 0.36, 40);
+  const pts = [];
+  b.dots.forEach((d, i) => {
+    const x = X(aD(d.c), cS(d.s)), y = Y(aD(d.c), cS(d.s));
+    pts.push([x, y]);
+    const sel = card.sel.has(i);
+    const tick = col => `<path d="M${P(x - r * 0.42)},${P(y + r * 0.02)} L${P(x - r * 0.1)},${P(y + r * 0.34)} L${P(x + r * 0.44)},${P(y - r * 0.3)}" fill="none" stroke="${col}" stroke-width="${P(r * 0.2)}" stroke-linecap="round" stroke-linejoin="round"/>`;
+    if (!card.checked) {
+      if (sel) o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#a06ee0" stroke="#ffffff" stroke-width="${P(Math.max(3, r * 0.14))}"/><circle cx="${P(x)}" cy="${P(y)}" r="${P(r * 0.3)}" fill="#ffffff"/>`);
+      else o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#8e8e93" stroke="#a06ee0" stroke-width="${P(Math.max(2, r * 0.09))}"/>`);
+    } else if (d.root && card.revealed) {              // ukázaná odpověď: základní tón
+      o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#46b477" stroke="#ffffff" stroke-width="${P(Math.max(3, r * 0.14))}"/><circle cx="${P(x)}" cy="${P(y)}" r="${P(r * 0.3)}" fill="#ffffff"/>`);
+    } else if (d.root && sel) {                        // správně označený základní tón
+      o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#46b477" stroke="#ffffff" stroke-width="${P(Math.max(3, r * 0.14))}"/>` + tick('#ffffff'));
+    } else if (d.root) {                               // základní tón, který zůstal neoznačený
+      const sw = Math.max(4, r * 0.2);
+      o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r - sw / 2)}" fill="#1e1915" stroke="#46b477" stroke-width="${P(sw)}" stroke-dasharray="${P(r * 0.5)} ${P(r * 0.28)}"/><circle cx="${P(x)}" cy="${P(y)}" r="${P(r * 0.26)}" fill="#46b477"/>`);
+    } else if (sel) {                                  // označeno omylem
+      const k = r * 0.36;
+      o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#e0574f" stroke="#ffffff" stroke-width="${P(Math.max(3, r * 0.14))}"/><path d="M${P(x - k)},${P(y - k)} L${P(x + k)},${P(y + k)} M${P(x + k)},${P(y - k)} L${P(x - k)},${P(y + k)}" fill="none" stroke="#ffffff" stroke-width="${P(r * 0.2)}" stroke-linecap="round"/>`);
+    } else o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#8e8e93" opacity="0.45"/>`);
+  });
+  board.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  board.innerHTML = o.join('');
+  geo = { pts, r };
+}
+
+function refresh() {
+  if (!card) return;
+  prog.textContent = 'Správně ' + round.full;         // bez pořadí kartičky
+  shapeBtns.forEach(({ id, el }) => {
+    el.className = '';
+    if (!card.checked) { if (card.pick === id) el.classList.add('sel'); }
+    else if (id === card.id) el.classList.add('ok');
+    else if (id === card.pick) el.classList.add('bad');
+    else el.classList.add('dim');
+    el.disabled = card.checked;
+    el.setAttribute('aria-pressed', card.pick === id);
+  });
+  if (!card.checked) {
+    rev.hidden = false;
+    go.textContent = 'Zkontrolovat';
+    go.disabled = !(card.pick && card.sel.size);
+    msg.textContent = card.pick && card.sel.size ? '' : card.sel.size ? 'Vyber tvar boxu' : card.pick ? 'Označ základní tóny' : 'Označ základní tóny a vyber tvar';
+  } else {
+    rev.hidden = true;
+    go.textContent = round.done >= ROUND ? 'Výsledek' : 'Další';
+    go.disabled = false;
+    if (card.revealed) { msg.innerHTML = `Správná odpověď: tvar <span class="ok">${card.id}</span>`; draw(); return; }
+    const a = card.okShape ? '<span class="ok">Tvar ✓</span>' : `<span class="bad">Tvar ✗ (je to ${card.id})</span>`;
+    const c = card.okRoots ? '<span class="ok">Základní tóny ✓</span>' : '<span class="bad">Základní tóny ✗</span>';
+    msg.innerHTML = a + ' · ' + c;
+  }
+  draw();
+}
+
+board.addEventListener('pointerdown', e => {
+  if (!card || card.checked || !geo) return;
+  e.preventDefault();
+  const rc = board.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
+  let best = -1, bd = Infinity;
+  geo.pts.forEach((p, i) => { const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; best = i; } });
+  if (best < 0 || bd > geo.r + HIT_PAD) return;      // reaguje jen tečka a úzký lem kolem ní
+  if (card.sel.has(best)) card.sel.delete(best); else card.sel.add(best);
+  refresh();
+});
+board.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('resize', draw);
+if (window.ResizeObserver) new ResizeObserver(draw).observe(stage);
+
+// ---------- menu a výsledek ----------
+const pct = (a, n) => n ? Math.round(100 * a / n) + ' %' : '–';
+function showMenu() {
+  let h = '<div class="h">Tvar</div><div class="h">Zkoušeno</div><div class="h">Tvar správně</div><div class="h">Zákl. tóny správně</div>';
+  SHAPES.forEach(s => { const t = store.st[s.id]; h += `<div class="k">${s.id}</div><div>${t.n}×</div><div>${pct(t.shape, t.n)}</div><div>${pct(t.roots, t.n)}</div>`; });
+  $('stats').innerHTML = h;
+  resetArmed = false; $('bReset').textContent = 'Vymazat pokrok';
+  $('end').classList.remove('open'); $('menu').classList.add('open');
+}
+function showEnd() {
+  $('endScore').innerHTML = `${round.full} / ${ROUND}<small>kartiček celých správně</small>`;
+  $('endLines').innerHTML = `Tvar správně: <b>${round.shape} / ${ROUND}</b><br>Základní tóny správně: <b>${round.roots} / ${ROUND}</b>`;
+  let h = '<div class="h">Tvar</div><div class="h">Kartiček</div><div class="h">Celé správně</div><div class="h">Úspěšnost</div>';
+  let worst = 1; const weak = [];
+  SHAPES.forEach(s => {
+    const p = round.per[s.id] || { n: 0, full: 0 };
+    h += `<div class="k">${s.id}</div><div>${p.n}×</div><div>${p.full}</div><div>${pct(p.full, p.n)}</div>`;
+    if (!p.n) return;
+    const q = p.full / p.n;
+    if (q < worst - 1e-9) { worst = q; weak.length = 0; weak.push(s.id); } else if (q < 1 && Math.abs(q - worst) < 1e-9) weak.push(s.id);
+  });
+  $('endTbl').innerHTML = h;
+  $('endWeak').innerHTML = weak.length ? `Nejslabší tvar: <b>${weak.join(', ')}</b>. V dalším kole se bude vracet častěji.` : 'Bez chyby.';
+  $('end').classList.add('open');
+}
+let resetArmed = false;
+$('bReset').addEventListener('click', () => {
+  if (!resetArmed) { resetArmed = true; $('bReset').textContent = 'Opravdu vymazat?'; return; }
+  store = blank(); save(); showMenu();
+});
+$('bStart').addEventListener('click', startRound);
+$('bAgain').addEventListener('click', startRound);
+$('bToMenu').addEventListener('click', showMenu);
+$('bMenu').addEventListener('click', showMenu);
+$('ver').textContent = VERSION;
+
+// ---------- celá obrazovka ----------
+const FS = {
+  in: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9 L4 4 L9 4 M20 9 L20 4 L15 4 M4 15 L4 20 L9 20 M20 15 L20 20 L15 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 L9 9 L4 9 M15 4 L15 9 L20 9 M9 20 L9 15 L4 15 M15 20 L15 15 L20 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+const bFs = $('bFs'), root = document.documentElement;
+function fsIcon() { bFs.innerHTML = document.fullscreenElement ? FS.out : FS.in; }
+if (root.requestFullscreen) {
+  bFs.addEventListener('click', () => {
+    const p = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen();
+    if (p && p.catch) p.catch(() => {});
+  });
+  document.addEventListener('fullscreenchange', fsIcon);
+  fsIcon();
+} else bFs.style.visibility = 'hidden';
+
+showMenu();
+window.__kviz = { BOXES, SHAPES, get card() { return card; }, get round() { return round; }, get geo() { return geo; }, get store() { return store; } };
+</script>
+</body>
+</html>

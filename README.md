@@ -35,6 +35,8 @@ Verze: `mapa.html` je vždy aktuální, `mapa_vNN.html` jsou uložené jednotliv
 - telefon na výšku (hlava nahoře, struna E vlevo) i tablet na šířku (hlava vpravo, struna E nahoře)
 - odpověď: ťuknout na tečky se základními tóny (reaguje tečka a úzký lem kolem ní) a vybrat tvar; Zkontrolovat ukáže správné řešení, tvar a základní tóny se hodnotí zvlášť
 - kolo má 10 kartiček, v každém kole všech pět tvarů; tvary s chybami se vracejí častěji; pokrok se ukládá v zařízení
+- kartičky jdou náhodně a nečíslují se (nahoře je jen počet správných); tlačítka s písmeny tvarů se u každé kartičky zamíchají
+- tlačítko Ukázat odpověď odhalí tvar i základní tóny bez odpovídání, počítá se jako chyba
 - bez zvuku
 
 Verze: `kviz.html` je vždy aktuální, `kviz_vNN.html` jsou uložené jednotlivé verze.
