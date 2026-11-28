@@ -27,16 +27,28 @@
   #keysGrid { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; background: #1f1f1e; padding: 16px; border-radius: 16px; border: 1px solid #444441; }
   #keysGrid .btn { width: 72px; }
   #keysGrid .btn.sel { background: #F1EFE8; color: #2C2C2A; border-color: #F1EFE8; }
+  #pages { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 5; }
+  #pages.open { display: flex; }
+  #pagesBox { display: flex; flex-direction: column; gap: 10px; min-width: 230px; background: #1f1f1e; padding: 16px; border-radius: 16px; border: 1px solid #444441; }
+  #pagesBox .btn { text-decoration: none; padding: 3px 16px; }
+  #ver { font-size: 12px; color: #5F5E5A; text-align: center; }
 </style>
 </head>
 <body>
 <svg id="map" xmlns="http://www.w3.org/2000/svg"></svg>
 <div id="side"><div id="panel"></div><div id="theory"></div></div>
 <div id="keys"><div id="keysGrid"></div></div>
+<div id="pages"><div id="pagesBox">
+  <a class="btn" href="index.html">Trenažér</a>
+  <a class="btn" href="kviz.html">Kvíz na boxy</a>
+  <a class="btn" href="tony.html">Tóny na hmatníku</a>
+  <button class="btn" id="pagesClose" type="button">Zavřít</button>
+  <div id="ver"></div>
+</div></div>
 <script>
 'use strict';
-// Mapa pentatoniky – verze v05
-const VERSION = 'mapa_v05';
+// Mapa pentatoniky – verze v06
+const VERSION = 'mapa_v06';
 const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'B', 'H'];
 const OPENS = [40, 45, 50, 55, 59, 64];            // E A D G H e (MIDI)
 const FRETS = 24;
@@ -100,6 +112,12 @@ const allBtn = mkBtn('', () => { state.all = !state.all; update(); });
 const chordBtn = mkBtn('', () => {
   state.chord = CHORD_MODES[(CHORD_MODES.indexOf(state.chord) + 1) % CHORD_MODES.length]; update();
 });
+
+// odkazy na ostatní stránky
+const pagesEl = document.getElementById('pages');
+mkBtn('Stránky', () => pagesEl.classList.add('open')).classList.add('wide');
+pagesEl.addEventListener('click', e => { if (e.target === pagesEl || e.target.id === 'pagesClose') pagesEl.classList.remove('open'); });
+document.getElementById('ver').textContent = VERSION;
 
 const keysEl = document.getElementById('keys'), keysGrid = document.getElementById('keysGrid');
 KEYS.forEach((k, i) => {

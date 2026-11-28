@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#161618">
+<title>Tóny na hmatníku</title>
+<link rel="icon" href="icon-192.png">
+<style>
+  :root { --bg: #161618; --panel: #26262a; --line: #38383f; --text: #d8d8dc; --strong: #ececee; --mute: #8b8b90;
+    --purple: #a06ee0; --ok: #46b477; --bad: #e0574f; --bh: clamp(48px, 9vmin, 72px); }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); overflow: hidden; overscroll-behavior: none;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation;
+    -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  button { font: inherit; color: inherit; touch-action: manipulation; }
+  /* zadání a tlačítka vlevo, krk vpravo přes celou výšku */
+  #app { position: fixed; inset: 0; display: flex; flex-direction: row; box-sizing: border-box; max-width: 560px; margin: 0 auto;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+  #side { flex: none; width: clamp(100px, 29vw, 160px); box-sizing: border-box; display: flex; flex-direction: column; gap: 8px; padding: 6px 2px 8px 6px; }
+  #top { display: flex; gap: 4px; }
+  .ic { flex: 1; min-width: 0; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel);
+    display: flex; align-items: center; justify-content: center; padding: 0; }
+  .ic svg { width: 22px; height: 22px; }
+  #prog { text-align: center; font-size: 15px; font-weight: 600; color: var(--strong); white-space: nowrap; }
+  #ask { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; text-align: center; }
+  #askLbl { font-size: 14px; color: var(--mute); }
+  #tone { font-size: clamp(50px, 15vw, 80px); font-weight: 700; line-height: 1; color: var(--strong); }
+  #msg { min-height: 4.2em; line-height: 1.4; font-size: 14px; color: var(--mute); }
+  #msg .ok { color: var(--ok); font-weight: 600; }
+  #msg .bad { color: var(--bad); font-weight: 600; }
+  #acts { display: flex; flex-direction: column; gap: 8px; }
+  #go, .big { height: var(--bh); border-radius: 12px; border: 2px solid #d6d6d9; background: #d6d6d9; color: #161618;
+    font-size: clamp(17px, 3vmin, 22px); font-weight: 700; padding: 0 16px; }
+  #go { height: calc(var(--bh) + 10px); font-size: clamp(13px, 3.7vw, 18px); padding: 0 2px; }
+  #go:disabled { background: var(--panel); border-color: var(--line); color: #6a6a70; }
+  #rev { height: var(--bh); border-radius: 12px; border: 2px solid var(--line); background: var(--panel); color: var(--text);
+    font-size: clamp(13px, 3.7vw, 17px); font-weight: 600; line-height: 1.15; padding: 0 4px; }
+  #rev.off { visibility: hidden; }
+  button:active:not(:disabled) { transform: scale(0.97); }
+
+  #stage { flex: 1; min-width: 0; position: relative; }
+  #board { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  .scr { position: fixed; inset: 0; background: var(--bg); z-index: 5; display: none; overflow-y: auto; }
+  .scr.open { display: flex; }
+  .scr .box { margin: auto; width: 100%; max-width: 520px; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;
+    padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); }
+  .scr h1 { margin: 0; font-size: 30px; font-weight: 700; color: var(--strong); }
+  .scr p { margin: 0; font-size: 16px; line-height: 1.5; color: #a9a9af; }
+  .scr p b { color: var(--strong); font-weight: 600; }
+  .tbl { display: grid; grid-template-columns: auto 1fr 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .tbl div { background: #1d1d20; padding: 6px 10px; font-size: 16px; text-align: center; font-variant-numeric: tabular-nums; }
+  .tbl .h { font-size: 13px; color: var(--mute); }
+  .tbl .k { font-weight: 700; color: var(--strong); min-width: 28px; }
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; min-width: 0; }
+  .ghost { height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 15px; color: var(--text);
+    display: flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; padding: 0 8px; }
+  .score { font-size: 64px; font-weight: 700; color: var(--strong); line-height: 1; }
+  .score small { display: block; font-size: 16px; font-weight: 400; color: var(--mute); margin-top: 8px; }
+  .ver { font-size: 12px; color: #5c5c62; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="side">
+    <div id="top">
+      <button id="bMenu" class="ic" type="button" aria-label="Menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7 H20 M4 12 H20 M4 17 H20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+      </button>
+      <button id="bFs" class="ic" type="button" aria-label="Celá obrazovka"></button>
+    </div>
+    <div id="prog"></div>
+    <div id="ask">
+      <div id="askLbl">Najdi tón</div>
+      <div id="tone"></div>
+      <div id="msg" aria-live="polite"></div>
+    </div>
+    <div id="acts">
+      <button id="rev" type="button">Ukázat odpověď</button>
+      <button id="go" type="button"></button>
+    </div>
+  </div>
+  <div id="stage"><svg id="board" xmlns="http://www.w3.org/2000/svg"></svg></div>
+</div>
+
+<div id="menu" class="scr open">
+  <div class="box">
+    <h1>Tóny na hmatníku</h1>
+    <p>Vlevo je <b>tón</b>. Označ ho na krku na <b>všech šesti strunách</b> (pražce 1–12, bez prázdných strun) a dej Zkontrolovat.</p>
+    <p>Na každé struně je jedna značka: ťuknutí na jiný pražec ji přesune, ťuknutí na značku ji zruší. Když nevíš, dej Ukázat odpověď, počítá se to jako chyba.</p>
+    <p>V kole je všech <b>12 tónů</b> v náhodném pořadí. Tón, který byl špatně, se v kole vrátí znovu.</p>
+    <p>Krk je svisle: hlava kytary je nahoře, tlustá struna E vlevo a tenká e vpravo.</p>
+    <button id="bStart" class="big" type="button">Start (12 tónů)</button>
+    <div id="stats" class="tbl"></div>
+    <div class="row">
+      <a class="ghost" href="index.html">Trenažér</a>
+      <a class="ghost" href="mapa.html">Mapa</a>
+      <a class="ghost" href="kviz.html">Kvíz na boxy</a>
+    </div>
+    <div class="row">
+      <button id="bReset" class="ghost" type="button">Vymazat pokrok</button>
+    </div>
+    <div class="ver" id="ver"></div>
+  </div>
+</div>
+
+<div id="end" class="scr">
+  <div class="box">
+    <h1>Výsledek</h1>
+    <div class="score" id="endScore"></div>
+    <p id="endLines"></p>
+    <div id="endTbl" class="tbl"></div>
+    <p id="endWeak"></p>
+    <div class="row">
+      <button id="bAgain" class="big" type="button">Další kolo</button>
+      <button id="bToMenu" class="ghost" type="button" style="height:var(--bh)">Menu</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+// Tóny na hmatníku – verze v01
+const VERSION = 'tony_v01';
+const LS = 'tony-hmatnik';
+const KEYS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'B', 'H'];   // názvy tónů jako v mapě
+const OPENS = [40, 45, 50, 55, 59, 64];              // E A D G H e (MIDI)
+const NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
+const GAUGE = [1.17, 0.91, 0.66, 0.43, 0.33, 0.25];  // tloušťky strun v mm
+const FRETS = 12;                                    // jedna oktáva, pražce 1–12, bez prázdných strun
+const INLAY = [3, 5, 7, 9, 12];                      // značky na hmatníku a čísla pražců
+const MAX_BACK = 2;                                  // kolikrát se může špatně určený tón v jednom kole vrátit
+const BACK_GAP = 2;                                  // vrací se nejdřív po dvou jiných otázkách (pokud ještě nějaké zbývají)
+
+// Pražec tónu pc (0 = C) na struně i; v pražcích 1–12 je každý tón na každé struně právě jednou.
+const fretOf = (pc, i) => (((pc - OPENS[i]) % 12) + 12) % 12 || 12;
+
+// ---------- uložený pokrok ----------
+const blank = () => ({ st: KEYS.map(() => ({ n: 0, ok: 0, str: 0 })) });   // n = zkoušeno, ok = celé správně, str = správně určených strun
+let store = blank();
+try {
+  const o = JSON.parse(localStorage.getItem(LS) || 'null');
+  if (o && Array.isArray(o.st)) KEYS.forEach((k, pc) => {
+    const t = o.st[pc];
+    if (t) ['n', 'ok', 'str'].forEach(f => { if (Number.isInteger(t[f]) && t[f] >= 0) store.st[pc][f] = t[f]; });
+  });
+} catch (e) { /* nic */ }
+function save() { try { localStorage.setItem(LS, JSON.stringify(store)); } catch (e) { /* nic */ } }
+
+// ---------- stav ----------
+const $ = id => document.getElementById(id);
+const stage = $('stage'), board = $('board'), msg = $('msg'), go = $('go'), rev = $('rev'), prog = $('prog'), toneEl = $('tone');
+let round = null;   // { queue, asked, right, first:{pc:bool}, back:{pc:n}, per:{pc:{n,ok}} }
+let card = null;    // { pc, sel:[pražec na struně nebo 0], checked, revealed, ok, hits }
+let geo = null;     // rozměry krku na obrazovce pro dotyk
+
+function shuffled(a) {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+function startRound() {
+  round = { queue: shuffled(KEYS.map((k, pc) => pc)), asked: 0, right: 0, first: {}, back: {}, per: {} };
+  $('menu').classList.remove('open'); $('end').classList.remove('open');
+  nextCard();
+}
+function nextCard() {
+  card = { pc: round.queue.shift(), sel: [0, 0, 0, 0, 0, 0], checked: false, revealed: false, ok: false, hits: 0 };
+  refresh();
+}
+// reveal = true: jen ukázat správnou odpověď bez odpovídání; počítá se jako chyba.
+function check(reveal) {
+  const pc = card.pc;
+  if (reveal) { card.revealed = true; card.sel = [0, 0, 0, 0, 0, 0]; }
+  card.hits = card.sel.filter((f, i) => f === fretOf(pc, i)).length;
+  card.ok = card.hits === 6;
+  card.checked = true;
+  round.asked++; round.right += card.ok ? 1 : 0;
+  if (!(pc in round.first)) round.first[pc] = card.ok;
+  const per = round.per[pc] || (round.per[pc] = { n: 0, ok: 0 });
+  per.n++; per.ok += card.ok ? 1 : 0;
+  const st = store.st[pc];
+  st.n++; st.ok += card.ok ? 1 : 0; st.str += card.hits;
+  if (!card.ok && (round.back[pc] || 0) < MAX_BACK) {    // špatně určený tón se v kole vrátí
+    round.back[pc] = (round.back[pc] || 0) + 1;
+    const q = round.queue, lo = Math.min(BACK_GAP, q.length);
+    q.splice(lo + Math.floor(Math.random() * (q.length - lo + 1)), 0, pc);
+  }
+  save(); refresh();
+}
+
+go.addEventListener('click', () => {
+  if (!card) return;
+  if (!card.checked) { if (card.sel.some(f => f)) check(false); return; }
+  if (!round.queue.length) showEnd(); else nextCard();
+});
+rev.addEventListener('click', () => { if (card && !card.checked) check(true); });
+
+// ---------- kreslení ----------
+const P = v => (Math.round(v * 10) / 10).toString();
+
+function draw() {
+  if (!card) return;
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  const GUT = 24, RM = 6;                            // GUT = proužek s čísly pražců vlevo od krku
+  const LBL = 26;                                    // proužek s názvy strun u hlavy
+  const neckW = Math.min(w - GUT - RM, h * 0.36), sp = neckW / 6;
+  const x0 = w - RM - neckW, x1 = x0 + neckW;
+  const top = LBL + 8, bot = h - 4, TAIL = 6;        // top = nultý pražec; za 12. pražcem ještě kousek hmatníku
+  const L = (bot - TAIL - top) / (1 - Math.pow(2, -FRETS / 12));
+  const fy = n => top + L * (1 - Math.pow(2, -n / 12));   // skutečné rozestupy pražců: k tělu se zužují
+  const cy = n => (fy(n - 1) + fy(n)) / 2;
+  const sx = i => x0 + sp * (i + 0.5);               // tlustá struna E vlevo, tenká e vpravo
+  const o = [];
+  o.push(`<defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#55595e"/><stop offset=".4" stop-color="#b4b8bd"/><stop offset=".65" stop-color="#eef0f2"/><stop offset="1" stop-color="#5d6166"/></linearGradient></defs>`);
+
+  // hmatník (eben), kresba dřeva, krémové lemování
+  o.push(`<rect x="${P(x0)}" y="${P(top)}" width="${P(neckW)}" height="${P(bot - top)}" fill="#1e1915"/>`);
+  for (let k = 0; k < 16; k++) {
+    const x = x0 + neckW * (0.04 + 0.92 * ((k * 37 + 11) % 100) / 100);
+    o.push(`<line x1="${P(x)}" y1="${P(top)}" x2="${P(x + ((k * 13) % 7 - 3))}" y2="${P(bot)}" stroke="#2c241e" stroke-width="${(0.6 + (k * 37 % 10) / 8).toFixed(2)}" opacity="0.7"/>`);
+  }
+  o.push(`<line x1="${P(x0)}" y1="${P(top)}" x2="${P(x0)}" y2="${P(bot)}" stroke="#e3d8bd" stroke-width="2.5"/>`);
+  o.push(`<line x1="${P(x1)}" y1="${P(top)}" x2="${P(x1)}" y2="${P(bot)}" stroke="#e3d8bd" stroke-width="2.5"/>`);
+
+  // značky na hmatníku (na 12. pražci dvě) a čísla pražců vlevo od krku
+  INLAY.forEach(n => {
+    const y = cy(n), r = Math.min(sp * 0.2, (fy(n) - fy(n - 1)) * 0.2);
+    const xs = n === 12 ? [(sx(1) + sx(2)) / 2, (sx(3) + sx(4)) / 2] : [(x0 + x1) / 2];
+    xs.forEach(x => o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#e8e3d6" opacity="0.88"/>`));
+    o.push(`<text x="${P(x0 - 6)}" y="${P(y)}" font-size="14" fill="#a9a9af" text-anchor="end" dominant-baseline="central">${n}</text>`);
+  });
+
+  // pražce a nultý pražec
+  const fw = Math.max(3, Math.min(6, sp * 0.1));
+  for (let n = 1; n <= FRETS; n++) o.push(`<rect x="${P(x0 + 1.5)}" y="${P(fy(n) - fw / 2)}" width="${P(neckW - 3)}" height="${P(fw)}" rx="1.5" fill="url(#fg)"/>`);
+  o.push(`<rect x="${P(x0 - 1)}" y="${P(top - 6)}" width="${P(neckW + 2)}" height="7" rx="1.5" fill="#e9e2cf"/>`);
+
+  // názvy strun u hlavy
+  for (let i = 0; i < 6; i++) {
+    const half = Math.min(sp * 0.4, 15);
+    o.push(`<rect x="${P(sx(i) - half)}" y="2" width="${P(2 * half)}" height="${P(LBL - 4)}" rx="6" fill="#26262a" stroke="#38383f"/>`);
+    o.push(`<text x="${P(sx(i))}" y="${P(LBL / 2)}" font-size="15" font-weight="700" fill="#f0efe9" text-anchor="middle" dominant-baseline="central">${NAMES[i]}</text>`);
+  }
+
+  // struny (E A D opředené, G H e hladké)
+  for (let i = 0; i < 6; i++) {
+    const g = Math.max(1.4, GAUGE[i] * sp / 9), x = sx(i), y1 = LBL - 2;
+    o.push(`<line x1="${P(x + g * 0.5)}" y1="${P(top)}" x2="${P(x + g * 0.5)}" y2="${P(bot)}" stroke="#000" stroke-width="${P(g)}" opacity="0.45"/>`);
+    if (i < 3) {
+      o.push(`<line x1="${P(x)}" y1="${P(y1)}" x2="${P(x)}" y2="${P(bot)}" stroke="#b9b3a6" stroke-width="${P(g)}"/>`);
+      o.push(`<line x1="${P(x)}" y1="${P(y1)}" x2="${P(x)}" y2="${P(bot)}" stroke="#6f6a61" stroke-width="${P(g * 0.9)}" stroke-dasharray="${P(g * 0.22)} ${P(g * 0.3)}"/>`);
+    } else o.push(`<line x1="${P(x)}" y1="${P(y1)}" x2="${P(x)}" y2="${P(bot)}" stroke="#dfe2e5" stroke-width="${P(g)}"/>`);
+  }
+
+  // značky odpovědi
+  const dot = (i, n, kind) => {
+    const x = sx(i), y = cy(n), r = Math.min(sp * 0.44, (fy(n) - fy(n - 1)) * 0.42);
+    const ring = `stroke="#ffffff" stroke-width="${P(Math.max(2.5, r * 0.14))}"`;
+    if (kind === 'sel') o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#a06ee0" ${ring}/><circle cx="${P(x)}" cy="${P(y)}" r="${P(r * 0.3)}" fill="#ffffff"/>`);
+    else if (kind === 'show') o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#46b477" ${ring}/><circle cx="${P(x)}" cy="${P(y)}" r="${P(r * 0.3)}" fill="#ffffff"/>`);
+    else if (kind === 'ok') o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#46b477" ${ring}/><path d="M${P(x - r * 0.42)},${P(y + r * 0.02)} L${P(x - r * 0.1)},${P(y + r * 0.34)} L${P(x + r * 0.44)},${P(y - r * 0.3)}" fill="none" stroke="#ffffff" stroke-width="${P(r * 0.2)}" stroke-linecap="round" stroke-linejoin="round"/>`);
+    else if (kind === 'miss') {                      // správné místo, které zůstalo neoznačené
+      const sw = Math.max(3, r * 0.2);
+      o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r - sw / 2)}" fill="#1e1915" stroke="#46b477" stroke-width="${P(sw)}" stroke-dasharray="${P(r * 0.5)} ${P(r * 0.28)}"/><circle cx="${P(x)}" cy="${P(y)}" r="${P(r * 0.26)}" fill="#46b477"/>`);
+    } else {                                         // označeno špatně
+      const k = r * 0.36;
+      o.push(`<circle cx="${P(x)}" cy="${P(y)}" r="${P(r)}" fill="#e0574f" ${ring}/><path d="M${P(x - k)},${P(y - k)} L${P(x + k)},${P(y + k)} M${P(x + k)},${P(y - k)} L${P(x - k)},${P(y + k)}" fill="none" stroke="#ffffff" stroke-width="${P(r * 0.2)}" stroke-linecap="round"/>`);
+    }
+  };
+  for (let i = 0; i < 6; i++) {
+    const s = card.sel[i], a = fretOf(card.pc, i);
+    if (!card.checked) { if (s) dot(i, s, 'sel'); }
+    else if (card.revealed) dot(i, a, 'show');
+    else if (s === a) dot(i, a, 'ok');
+    else { dot(i, a, 'miss'); if (s) dot(i, s, 'bad'); }
+  }
+  board.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  board.innerHTML = o.join('');
+  geo = { x0, x1, sp, top, bot, fy, sx, cy };
+}
+
+function refresh() {
+  if (!card) return;
+  prog.textContent = 'Správně ' + round.right;        // bez pořadí otázky
+  toneEl.textContent = KEYS[card.pc];
+  const marked = card.sel.filter(f => f).length;
+  if (!card.checked) {
+    rev.classList.remove('off');
+    go.textContent = 'Zkontrolovat';
+    go.disabled = !marked;
+    msg.textContent = marked ? `Označeno ${marked} ze 6` : 'Označ ho na všech 6 strunách';
+  } else {
+    rev.classList.add('off');
+    go.textContent = round.queue.length ? 'Další' : 'Výsledek';
+    go.disabled = false;
+    if (card.revealed) msg.innerHTML = 'Správná odpověď';
+    else if (card.ok) msg.innerHTML = '<span class="ok">Správně ✓</span>';
+    else msg.innerHTML = `<span class="bad">Správně ${card.hits} ze 6 strun</span>`;
+  }
+  draw();
+}
+
+// Dotyk: reaguje celé políčko struna × pražec, ťuknutí mezi struny patří bližší struně.
+board.addEventListener('pointerdown', e => {
+  if (!card || card.checked || !geo) return;
+  e.preventDefault();
+  const rc = board.getBoundingClientRect(), x = e.clientX - rc.left, y = e.clientY - rc.top;
+  if (x < geo.x0 - 4 || x > geo.x1 + 6 || y < geo.top || y > geo.bot + 4) return;
+  const i = Math.max(0, Math.min(5, Math.floor((x - geo.x0) / geo.sp)));
+  let n = 1; while (n < FRETS && y > geo.fy(n)) n++;
+  card.sel[i] = card.sel[i] === n ? 0 : n;            // na struně je nejvýš jedna značka
+  refresh();
+});
+board.addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('resize', draw);
+if (window.ResizeObserver) new ResizeObserver(draw).observe(stage);
+
+// ---------- menu a výsledek ----------
+const pct = (a, n) => n ? Math.round(100 * a / n) + ' %' : '–';
+function showMenu() {
+  let h = '<div class="h">Tón</div><div class="h">Zkoušeno</div><div class="h">Celý správně</div><div class="h">Struny správně</div>';
+  KEYS.forEach((k, pc) => { const t = store.st[pc]; h += `<div class="k">${k}</div><div>${t.n}×</div><div>${pct(t.ok, t.n)}</div><div>${pct(t.str, 6 * t.n)}</div>`; });
+  $('stats').innerHTML = h;
+  resetArmed = false; $('bReset').textContent = 'Vymazat pokrok';
+  $('end').classList.remove('open'); $('menu').classList.add('open');
+}
+function showEnd() {
+  const first = KEYS.filter((k, pc) => round.first[pc]).length;
+  $('endScore').innerHTML = `${first} / ${KEYS.length}<small>tónů napoprvé správně</small>`;
+  const rep = round.asked - KEYS.length;
+  $('endLines').innerHTML = `Otázek celkem: <b>${round.asked}</b>` + (rep ? ` (z toho opakování <b>${rep}</b>)` : '') + `<br>Správně: <b>${round.right} / ${round.asked}</b>`;
+  let h = '<div class="h">Tón</div><div class="h">Otázek</div><div class="h">Správně</div><div class="h">Napoprvé</div>';
+  const weak = [];
+  KEYS.forEach((k, pc) => {
+    const p = round.per[pc] || { n: 0, ok: 0 };
+    h += `<div class="k">${k}</div><div>${p.n}×</div><div>${p.ok}</div><div>${round.first[pc] ? '✓' : '✗'}</div>`;
+    if (!round.first[pc]) weak.push(k);
+  });
+  $('endTbl').innerHTML = h;
+  $('endWeak').innerHTML = weak.length ? `Napoprvé špatně: <b>${weak.join(', ')}</b>.` : 'Bez chyby.';
+  $('end').classList.add('open');
+}
+let resetArmed = false;
+$('bReset').addEventListener('click', () => {
+  if (!resetArmed) { resetArmed = true; $('bReset').textContent = 'Opravdu vymazat?'; return; }
+  store = blank(); save(); showMenu();
+});
+$('bStart').addEventListener('click', startRound);
+$('bAgain').addEventListener('click', startRound);
+$('bToMenu').addEventListener('click', showMenu);
+$('bMenu').addEventListener('click', showMenu);
+$('ver').textContent = VERSION;
+
+// ---------- celá obrazovka ----------
+const FS = {
+  in: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9 L4 4 L9 4 M20 9 L20 4 L15 4 M4 15 L4 20 L9 20 M20 15 L20 20 L15 20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  out: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 L9 9 L4 9 M15 4 L15 9 L20 9 M9 20 L9 15 L4 15 M15 20 L15 15 L20 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+};
+const bFs = $('bFs'), root = document.documentElement;
+function fsIcon() { bFs.innerHTML = document.fullscreenElement ? FS.out : FS.in; }
+if (root.requestFullscreen) {
+  bFs.addEventListener('click', () => {
+    const p = document.fullscreenElement ? document.exitFullscreen() : root.requestFullscreen();
+    if (p && p.catch) p.catch(() => {});
+  });
+  document.addEventListener('fullscreenchange', fsIcon);
+  fsIcon();
+} else bFs.style.visibility = 'hidden';
+
+showMenu();
+window.__tony = { KEYS, fretOf, get card() { return card; }, get round() { return round; }, get geo() { return geo; }, get store() { return store; } };
+</script>
+</body>
+</html>

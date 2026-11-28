@@ -55,7 +55,7 @@ select.sel{height:.78rem;flex:1 1 0;min-width:0;border-radius:.16rem;border:1px 
 <script>
 (() => {
 'use strict';
-const VERSION = 'v02';
+const VERSION = 'v03';
 const LS = 'kytara.state.v1';
 const TAB_W_MM = 236.9;                       // Galaxy Tab S11, šířka displeje na šířku
 const STD = [40, 45, 50, 55, 59, 64];         // E2 A2 D3 G3 H3 E4 (MIDI)
@@ -402,6 +402,7 @@ function renderSettings() {
   const cols = t.map((m, i) => `<div class="tunecol">${btn('+', 'tune:' + i + ':1', false, `aria-label="struna ${i + 1} výš"`)}<div class="disp">${midiName(m)}</div>${btn('−', 'tune:' + i + ':-1', false, `aria-label="struna ${i + 1} níž"`)}</div>`).join('');
   setEl.innerHTML = `
 <h2><span>Nastavení<small>Kytara ${VERSION}</small></span>${btn('Zavřít', 'close', false, 'style="flex:0 0 22%"')}</h2>
+<div class="grp"><div class="lbl">Další stránky</div><div class="row">${btn('Mapa', 'go:mapa.html')}${btn('Kvíz na boxy', 'go:kviz.html')}${btn('Tóny na hmatníku', 'go:tony.html')}</div></div>
 <div class="grp"><div class="lbl">Počet strun</div><div class="row">${btn('6 strun', 'noop', true)}${btn('7 strun – připravuji', 'noop', false, 'disabled')}</div></div>
 <div class="grp"><div class="lbl">Ladění (od nejhlubší struny)</div><div class="row"><select class="sel" data-a="tuning" aria-label="ladění">${tsel}</select></div><div class="tunegrid">${cols}</div></div>
 <div class="grp"><div class="lbl">Menzura</div><div class="row">${[628, 648, 673, 686].map(v => btn(v + ' mm', 'scalelen:' + v, S.set.scaleLen === v)).join('')}</div></div>
@@ -433,6 +434,7 @@ function act(a) {
     case 'pos': S.pos = Math.max(0, Math.min(pMax(), S.pos + n)); break;
     case 'settings': settingsOpen = true; break;
     case 'close': settingsOpen = false; break;
+    case 'go': location.href = v; return;
     case 'fs': toggleFs(); return;
     case 'tune': {
       const i = n, dlt = Number(w);

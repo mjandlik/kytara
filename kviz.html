@@ -95,9 +95,9 @@
   .tbl .h { font-size: 13px; color: var(--mute); }
   .tbl .k { font-weight: 700; color: var(--strong); min-width: 28px; }
   .row { display: flex; gap: 10px; }
-  .row > * { flex: 1; }
+  .row > * { flex: 1; min-width: 0; }
   .ghost { height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); font-size: 15px; color: var(--text);
-    display: flex; align-items: center; justify-content: center; text-decoration: none; padding: 0 10px; }
+    display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.15; text-decoration: none; padding: 0 8px; }
   .score { font-size: 64px; font-weight: 700; color: var(--strong); line-height: 1; }
   .score small { display: block; font-size: 16px; font-weight: 400; color: var(--mute); margin-top: 8px; }
   .ver { font-size: 12px; color: #5c5c62; text-align: center; }
@@ -147,8 +147,11 @@
     <div id="stats" class="tbl"></div>
     <div id="stats2" class="tbl t3"></div>
     <div class="row">
-      <a class="ghost" href="mapa.html">Mapa</a>
       <a class="ghost" href="index.html">Trenažér</a>
+      <a class="ghost" href="mapa.html">Mapa</a>
+      <a class="ghost" href="tony.html">Tóny na hmatníku</a>
+    </div>
+    <div class="row">
       <button id="bReset" class="ghost" type="button">Vymazat pokrok</button>
     </div>
     <div class="ver" id="ver"></div>
@@ -171,8 +174,8 @@
 
 <script>
 'use strict';
-// Kvíz na boxy – verze v06
-const VERSION = 'kviz_v06';
+// Kvíz na boxy – verze v07
+const VERSION = 'kviz_v07';
 const LS = 'kviz-boxy';
 const OPENS = [40, 45, 50, 55, 59, 64];              // E A D G H e (MIDI)
 const NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];        // E = tlustá struna, e = tenká
