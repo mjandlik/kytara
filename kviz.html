@@ -137,8 +137,8 @@
 
 <script>
 'use strict';
-// Kvíz na boxy – verze v03
-const VERSION = 'kviz_v03';
+// Kvíz na boxy – verze v04
+const VERSION = 'kviz_v04';
 const LS = 'kviz-boxy';
 const OPENS = [40, 45, 50, 55, 59, 64];              // E A D G H e (MIDI)
 const NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
@@ -266,8 +266,10 @@ function draw() {
   const b = card.box;
   const A = w, C = h;                                // A = délka podél krku, C = šířka přes struny; krk je vždy vodorovně
   const LBL = Math.max(24, Math.min(44, C * 0.06));  // proužek s názvy strun na straně hlavy
-  const PAD = Math.max(4, C * 0.012);
-  const neckW = C - 2 * PAD, sp = neckW / 6;
+  const EDGE = Math.max(4, C * 0.012);
+  const NECK_H = h > w ? 0.75 : 1;                   // na výšku je krk nižší (75 % místa), aby měl proporce kytary
+  const neckW = (C - 2 * EDGE) * NECK_H, sp = neckW / 6;
+  const PAD = (C - neckW) / 2;                       // krk je svisle uprostřed
   const a0 = LBL + 4, SL = 0.22;                     // SL = kousek hmatníku před prvním a za posledním pražcem
   const cell = (A - a0) / (b.n + 2 * SL);
   const cS = i => PAD + sp * (i + 0.5);
