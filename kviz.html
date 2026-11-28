@@ -109,7 +109,7 @@
     <p>Mollová pentatonika, 6 strun, tvary <b>E D C A G</b>.</p>
     <p>U každé kartičky ťukni na tečky, které jsou <b>základní tóny</b>, a vyber <b>tvar boxu</b>. Pak dej Zkontrolovat. Když nevíš, dej Ukázat odpověď, počítá se to jako chyba.</p>
     <p>Kartičky jdou náhodně a tvary, které neumíš, se vracejí častěji. Tlačítka s písmeny se u každé kartičky zamíchají.</p>
-    <p>Na výšku je hlava kytary nahoře a tlustá struna E vlevo. Na šířku je hlava vpravo a tlustá struna E nahoře.</p>
+    <p>Krk je vodorovně: hlava kytary je vlevo, tlustá struna E dole a tenká e nahoře.</p>
     <div id="stats" class="tbl"></div>
     <button id="bStart" class="big" type="button">Start (10 kartiček)</button>
     <div class="row">
@@ -137,8 +137,8 @@
 
 <script>
 'use strict';
-// Kvíz na boxy – verze v02
-const VERSION = 'kviz_v02';
+// Kvíz na boxy – verze v03
+const VERSION = 'kviz_v03';
 const LS = 'kviz-boxy';
 const OPENS = [40, 45, 50, 55, 59, 64];              // E A D G H e (MIDI)
 const NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
@@ -263,8 +263,8 @@ function draw() {
   if (!card) return;
   const w = stage.clientWidth, h = stage.clientHeight;
   if (!w || !h) return;
-  const b = card.box, port = h >= w;
-  const A = port ? h : w, C = port ? w : h;          // A = délka podél krku, C = šířka přes struny
+  const b = card.box;
+  const A = w, C = h;                                // A = délka podél krku, C = šířka přes struny; krk je vždy vodorovně
   const LBL = Math.max(24, Math.min(44, C * 0.06));  // proužek s názvy strun na straně hlavy
   const PAD = Math.max(4, C * 0.012);
   const neckW = C - 2 * PAD, sp = neckW / 6;
@@ -273,13 +273,13 @@ function draw() {
   const cS = i => PAD + sp * (i + 0.5);
   const aW = k => a0 + (SL + k) * cell;
   const aD = c => a0 + (SL + c + 0.5) * cell;
-  // na výšku: hlava nahoře, struna E vlevo; na šířku: hlava vpravo, struna E nahoře (stejný pohled, jen otočený)
-  const X = (a, c) => port ? c : w - a;
-  const Y = (a, c) => port ? a : c;
-  const rect = (a1, a2, c1, c2, attrs) => `<rect x="${P(port ? c1 : w - a2)}" y="${P(port ? a1 : c1)}" width="${P(port ? c2 - c1 : a2 - a1)}" height="${P(port ? a2 - a1 : c2 - c1)}" ${attrs}/>`;
+  // na telefonu i tabletu stejný pohled: hlava vlevo, tlustá struna E dole, tenká e nahoře
+  const X = (a, c) => a;
+  const Y = (a, c) => h - c;
+  const rect = (a1, a2, c1, c2, attrs) => `<rect x="${P(a1)}" y="${P(h - c2)}" width="${P(a2 - a1)}" height="${P(c2 - c1)}" ${attrs}/>`;
   const line = (a1, c1, a2, c2, attrs) => `<line x1="${P(X(a1, c1))}" y1="${P(Y(a1, c1))}" x2="${P(X(a2, c2))}" y2="${P(Y(a2, c2))}" ${attrs}/>`;
   const o = [];
-  o.push(`<defs><linearGradient id="fg" x1="0" y1="0" x2="${port ? 0 : 1}" y2="${port ? 1 : 0}"><stop offset="0" stop-color="#55595e"/><stop offset=".4" stop-color="#b4b8bd"/><stop offset=".65" stop-color="#eef0f2"/><stop offset="1" stop-color="#5d6166"/></linearGradient></defs>`);
+  o.push(`<defs><linearGradient id="fg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#55595e"/><stop offset=".4" stop-color="#b4b8bd"/><stop offset=".65" stop-color="#eef0f2"/><stop offset="1" stop-color="#5d6166"/></linearGradient></defs>`);
 
   // hmatník (eben), kresba dřeva, krémové lemování
   o.push(rect(a0, A + 2, PAD, PAD + neckW, 'fill="#1e1915"'));
@@ -305,7 +305,7 @@ function draw() {
   // struny (E A D opředené, G H e hladké)
   for (let i = 0; i < 6; i++) {
     const g = Math.max(1.4, GAUGE[i] * sp / 9), c = cS(i);
-    o.push(line(a0, c + g * 0.5, A + 2, c + g * 0.5, `stroke="#000" stroke-width="${P(g)}" opacity="0.45"`));
+    o.push(line(a0, c - g * 0.5, A + 2, c - g * 0.5, `stroke="#000" stroke-width="${P(g)}" opacity="0.45"`));
     if (i < 3) {
       o.push(line(a0, c, A + 2, c, `stroke="#b9b3a6" stroke-width="${P(g)}"`));
       o.push(line(a0, c, A + 2, c, `stroke="#6f6a61" stroke-width="${P(g * 0.9)}" stroke-dasharray="${P(g * 0.22)} ${P(g * 0.3)}"`));
@@ -313,7 +313,7 @@ function draw() {
   }
 
   // tečky: všechny tóny pentatoniky v boxu, stejné barvy
-  const r = Math.min(sp * 0.41, cell * 0.36, 40);
+  const r = Math.min(sp * 0.41, cell * 0.4, 40);
   const pts = [];
   b.dots.forEach((d, i) => {
     const x = X(aD(d.c), cS(d.s)), y = Y(aD(d.c), cS(d.s));
