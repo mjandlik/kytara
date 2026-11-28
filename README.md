@@ -38,6 +38,11 @@ Verze: `mapa.html` je vždy aktuální, `mapa_vNN.html` jsou uložené jednotliv
 - kolo má 10 kartiček, v každém kole všech pět tvarů; tvary s chybami se vracejí častěji; pokrok se ukládá v zařízení
 - kartičky jdou náhodně a nečíslují se (nahoře je jen počet správných); tlačítka s písmeny tvarů se u každé kartičky zamíchají
 - tlačítko Ukázat odpověď odhalí tvar i základní tóny bez odpovídání, počítá se jako chyba
+- druhý režim **Bez hmatníku**: otázky jen textem, odpověď tlačítky; v menu tři volby: Box → struny, Struny → boxy, Mix obou
+  - Box → struny: na kterých strunách má box základní tóny (tlačítka E A D G H e, E = tlustá, e = tenká)
+  - Struny → boxy: které boxy mají základní tón na uvedených strunách; otázka uvede náhodně 1 až všechny struny boxu a označují se všechny boxy, které sedí
+  - tlačítka Ukázat box (bez základních tónů) a Box i základní tóny, obě se počítají jako chyba; po odpovědi se box ukáže vždy
+  - úspěšnost se vede zvlášť pro oba typy otázek
 - bez zvuku
 
 Verze: `kviz.html` je vždy aktuální, `kviz_vNN.html` jsou uložené jednotlivé verze.
