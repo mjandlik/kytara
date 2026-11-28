@@ -137,8 +137,8 @@
 
 <script>
 'use strict';
-// Kvíz na boxy – verze v04
-const VERSION = 'kviz_v04';
+// Kvíz na boxy – verze v05
+const VERSION = 'kviz_v05';
 const LS = 'kviz-boxy';
 const OPENS = [40, 45, 50, 55, 59, 64];              // E A D G H e (MIDI)
 const NAMES = ['E', 'A', 'D', 'G', 'H', 'e'];
@@ -267,7 +267,7 @@ function draw() {
   const A = w, C = h;                                // A = délka podél krku, C = šířka přes struny; krk je vždy vodorovně
   const LBL = Math.max(24, Math.min(44, C * 0.06));  // proužek s názvy strun na straně hlavy
   const EDGE = Math.max(4, C * 0.012);
-  const NECK_H = h > w ? 0.75 : 1;                   // na výšku je krk nižší (75 % místa), aby měl proporce kytary
+  const NECK_H = h > w ? 0.6 : 1;                    // na výšku je krk nižší (60 % místa = 0,75 × 0,8), aby měl proporce kytary
   const neckW = (C - 2 * EDGE) * NECK_H, sp = neckW / 6;
   const PAD = (C - neckW) / 2;                       // krk je svisle uprostřed
   const a0 = LBL + 4, SL = 0.22;                     // SL = kousek hmatníku před prvním a za posledním pražcem
@@ -315,7 +315,7 @@ function draw() {
   }
 
   // tečky: všechny tóny pentatoniky v boxu, stejné barvy
-  const r = Math.min(sp * 0.41, cell * 0.4, 40);
+  const r = Math.min(sp * 0.44, cell * 0.4, 40);
   const pts = [];
   b.dots.forEach((d, i) => {
     const x = X(aD(d.c), cS(d.s)), y = Y(aD(d.c), cS(d.s));

@@ -33,7 +33,7 @@ Verze: `mapa.html` je vždy aktuální, `mapa_vNN.html` jsou uložené jednotliv
 - kartičky na zkoušení boxů mollové pentatoniky (6 strun, bez bluesových tónů), tvary E D C A G
 - box přes celou obrazovku: jen pražce daného boxu, stejně široké, bez čísel pražců a bez tóniny; tečky na všech tónech boxu ve stejné barvě
 - telefon na výšku i tablet na šířku, všude stejný pohled: krk vodorovně, hlava vlevo, tlustá struna E dole
-- na výšku má krk 75 % dostupné výšky a je svisle uprostřed, aby měl proporce kytary
+- na výšku má krk 60 % dostupné výšky a je svisle uprostřed, aby měl proporce kytary
 - odpověď: ťuknout na tečky se základními tóny (reaguje tečka a úzký lem kolem ní) a vybrat tvar; Zkontrolovat ukáže správné řešení, tvar a základní tóny se hodnotí zvlášť
 - kolo má 10 kartiček, v každém kole všech pět tvarů; tvary s chybami se vracejí častěji; pokrok se ukládá v zařízení
 - kartičky jdou náhodně a nečíslují se (nahoře je jen počet správných); tlačítka s písmeny tvarů se u každé kartičky zamíchají
